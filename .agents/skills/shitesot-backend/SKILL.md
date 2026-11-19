@@ -1,9 +1,9 @@
 ---
 name: shitesot-backend
-description: ShiteSot backend conventions. Use when touching the Prisma schema or migrations, Server Actions, Route Handlers, authentication/authorization (Better Auth, roles), Zod validation, Postgres search, background jobs (pg-boss), image uploads/S3, CSV/Excel imports, price history, listing state transitions, notifications, payments/webhooks, rate limiting or audit logs.
+description: ShitShpejt backend conventions. Use when touching the Prisma schema or migrations, Server Actions, Route Handlers, authentication/authorization (Better Auth, roles), Zod validation, Postgres search, background jobs (pg-boss), image uploads/S3, CSV/Excel imports, price history, listing state transitions, notifications, payments/webhooks, rate limiting or audit logs.
 ---
 
-# ShiteSot Backend
+# ShitShpejt Backend
 
 Read `docs/ARCHITECTURE.md` for the data model and job list. This skill covers **how** to write the code.
 
@@ -48,41 +48,39 @@ Build `src/server/action.ts` once (small builder; or use `next-safe-action`). Ev
 - Role escalation (BUYER→SELLER) happens server-side on first listing publish. `ADMIN` is only granted via a CLI script (`pnpm admin:grant <email>`), never through the UI.
 - Admin routes: check in the layout **and** in every action (layouts don't protect actions).
 
-## 4. Listing state machine
+## 4. Listing state machine (48-hour rule)
+
+Pure rules: `features/listings/rules.ts` (`isAllowedTransition`, `effectiveStatus`, `activationOutcome`, `canUnmarkSold`, `classifyLiveEdit`, `canContactSeller`). The only writer: `transitionListing(tx, listing, reason, requested, { actorId, asAdmin, note })` in `state.ts`.
 
 ```
-DRAFT ─► PENDING_REVIEW ─► ACTIVE ⇄ RESERVED ─► SOLD
-              │               │  └──────────────► EXPIRED ─► ACTIVE (seller re-confirms)
-              └──► REMOVED ◄──┘ (moderation)
+DRAFT/REJECTED ─submit─► PENDING_REVIEW ─approve─► ACTIVE ─mark_sold─► SOLD ─unmark_sold (only before expiresAt)─► ACTIVE
+DRAFT/REJECTED ─submit (trusted)──────────────────► ACTIVE ─expire (worker)─► EXPIRED (frozen, no relisting)
+ACTIVE ─material_edit─► PENDING_REVIEW (clock keeps running) · any ─remove (admin)─► REMOVED
 ```
-`transitionListing(tx, id, to, { actor, reason })` validates the edge, sets timestamps (`publishedAt`, `soldAt`), writes `PriceHistory` on first publish, enqueues `alerts.match` on publish, and writes `AuditLog` when the actor is an admin. Unit-test every edge, including the illegal ones.
+- First activation sets `publishedAt = now`, `expiresAt = now + 48h`. Never touched again (edits, re-approval, unsold, promotions).
+- Public queries always filter `status = ACTIVE AND expiresAt > now()`; the worker only reconciles status.
+- Conditional `updateMany({ where: { id, status } })` guards concurrent transitions.
+- Moderation: `needsModeration({ mode, trusted, approvedCount, trustAfter })`.
 
-New sellers' first 3 listings → `PENDING_REVIEW`. Trusted / verified sellers → `ACTIVE` directly.
+## 5. Prices
 
-## 5. Price history & drops
-
-- `changePrice()` inserts a `PriceHistory` row in the same transaction as the update.
-- `isPriceDrop = latest.priceLek < previous.priceLek` using the **two most recent rows only**. Display the drop vs the previous price, not vs the max ever (prevents inflate-then-drop gaming).
-- Anti-gaming: if a price is raised then dropped within 7 days, show no drop badge. Unit-test it.
-- On a real drop: enqueue `alerts.priceDrop` for users who saved the listing.
+- `priceMinor Int` + `currency` (EUR cents / ALL lek). `parsePriceToMinor` never uses floats.
+- While ACTIVE the price may only go down; every change writes `PriceHistory` (baseline for future market analysis).
+- Optional `referencePriceMinor` must be higher and have a `referencePriceSource`; displayed as the seller's claim, never as a % discount.
 
 ## 6. Search
 
 - Migration adds `CREATE EXTENSION unaccent; CREATE EXTENSION pg_trgm;` + an `immutable_unaccent()` wrapper + the generated `searchVector` column + GIN indexes (Prisma `Unsupported("tsvector")` + raw SQL in the migration).
 - Query via `$queryRaw` tagged template only:
-  `websearch_to_tsquery('simple', immutable_unaccent(${q}))` OR `title % ${q}` (trigram), filtered by status `ACTIVE`, category, city, price range, condition, `urgentUntil > now()`, has-drop.
+  `websearch_to_tsquery('simple', immutable_unaccent(${q}))` OR `title % ${q}` (trigram), filtered by `status = ACTIVE AND expiresAt > now()`, seller not banned/deleted, category tree, city, price range, condition. Implemented in `features/listings/queries.ts → discoverListings()`.
 - Pagination: keyset (`publishedAt, id`), never `OFFSET` beyond page 1.
 - Log every search (query hash, filters, result count) to an `SearchLog` table for the admin "search activity" + zero-result insights.
 
 ## 7. Uploads
 
-1. Client asks `POST /api/uploads` → server checks auth + rate limit and returns a presigned S3 PUT (key `u/<userId>/<cuid>.<ext>`, `Content-Type` image/jpeg|png|webp|heic, max 10 MB).
-2. Client PUTs directly to Hetzner Object Storage.
-3. Client sends keys with the listing form; server verifies the key prefix belongs to the user, enqueues `image.process`.
-4. Worker: sharp → rotate, strip EXIF/GPS, AVIF + WebP at 320/640/1080/1600, blurhash, write dims to `ListingImage`.
-5. Serve via a custom `next/image` loader pointing at the bucket's public URL (or a Caddy-cached path).
+`POST /api/uploads` (same-origin, auth, rate limit) → `processUpload()`: sharp decodes (format allowlist, pixel limit, min 200px), auto-rotates, strips metadata, writes WebP 320/640/1280 through `StorageProvider` (`local` | `s3`) under `l/<userId>/<random>/`. Returns an image id; listings attach only the seller's own ids. Orphans deleted hourly after 24 h.
 
-## 8. Imports (CSV / XLSX)
+## 8. Imports (CSV / XLSX) — not in the ShitShpejt MVP; keep as guidance if added later
 
 - Parse with `papaparse` (CSV) and `exceljs` (XLSX) **in the worker**, streaming, max 5 000 rows / 20 MB per file.
 - Auto-detect columns by header synonyms (sq + en: `titulli|title|name`, `cmimi|çmimi|price`, `id|sku|external_id`…), and persist the seller's mapping for reuse.
@@ -109,7 +107,7 @@ New sellers' first 3 listings → `PENDING_REVIEW`. Trusted / verified sellers �
 ## 12. Testing
 
 - **Vitest** with a real Postgres (Testcontainers or the compose DB with a per-run schema). Don't mock Prisma for service tests.
-- Required coverage (from spec §21): auth, listing create/edit, upload validation, search filters, seller permissions, import validation, duplicate prevention, sold/expired states, price-drop calc, promotion expiry, webhook idempotency, rate limits.
+- Required coverage (from spec §21): auth, listing create/edit, upload validation, search filters, seller permissions, import validation, duplicate prevention, sold/expired states, 48h expiry reconciliation, contact eligibility, promotion expiry, webhook idempotency, rate limits.
 - Factories in `tests/factories.ts`, never shared mutable fixtures.
 
 ## 13. Don'ts

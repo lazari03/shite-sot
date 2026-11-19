@@ -1,26 +1,31 @@
 # TODO
 
-## External setup (owner: Fonsi)
+## External setup (owner)
 
-- [ ] Register domain (`shitesot.al` or similar) and point DNS to the Hetzner VM
-- [ ] Hetzner Cloud project: staging + production VMs, Cloud Firewall, Object Storage buckets (media ×2, backups), S3 keys
-- [ ] Google OAuth client (consent screen in sq + en)
-- [ ] Resend (or Postmark) account + domain DKIM/SPF/DMARC
-- [ ] Sentry/GlitchTip project
-- [ ] GitHub Environments `staging` / `production` with secrets + required reviewer on production
-- [ ] Research Albanian-supported payment providers before phase 3 (don't assume Stripe)
-- [ ] Privacy policy + terms (sq/en) reviewed against Albanian data-protection law
+- [ ] Domain (e.g. `shitshpejt.al`) + DNS → Hetzner VM; staging subdomain
+- [ ] Hetzner: staging + production VMs, Cloud Firewall, Object Storage buckets (media ×2, backups), S3 keys
+- [ ] GitHub Environments `staging` / `production` with `DEPLOY_*` secrets and `PUBLIC_URL` variable (see `docs/DEPLOYMENT.md`)
+- [ ] Resend account + domain DKIM/SPF/DMARC (`EMAIL_PROVIDER=resend`)
+- [ ] Google OAuth client (optional; button appears when `GOOGLE_CLIENT_ID/SECRET` are set)
+- [ ] Sentry or GlitchTip project (DSN)
+- [ ] Choose a payment provider that works for an Albanian business (bank gateway / Paysera / …) — then implement `PaymentProvider`
+- [ ] Terms of use + privacy policy (sq/en), reviewed against Albanian data-protection law; link them from registration and the footer
+- [ ] Decide moderation staffing (default: first 3 listings per seller are pre-moderated)
 
-## MVP build (see docs/ARCHITECTURE.md → Build order)
+## Deferred engineering work
 
-- [ ] 1. Scaffold Next.js + pnpm + Tailwind v4 tokens + fonts + app shell + i18n
-- [ ] 2. Prisma schema + migrations + Better Auth
-- [ ] 3. Seller profile + create listing + image pipeline
-- [ ] 4. Listing detail (SEO, share, WhatsApp)
-- [ ] 5. Search + filters + home sections
-- [ ] 6. Saved listings + price history / drop badges
-- [ ] 7. Seller dashboard + CSV/XLSX import
-- [ ] 8. Admin: moderation, reports, audit log, metrics
-- [ ] 9. Analytics, sitemap, OG images
-- [ ] 10. PWA (manifest, Serwist, install prompt)
-- [ ] Docker, compose, Caddy, CI/CD, first staging deploy
+- [ ] **Payments**: implement a `PaymentProvider`, `/api/webhooks/[provider]` route calling `activatePromotionForPayment`, checkout button on the listing manage page (only when `paymentsEnabled()`), PRO plan billing (`proUntil`)
+- [ ] **Listing impressions** analytics (IntersectionObserver beacon, batched, deduped). Views, searches, category views, contacts, favourites, lifecycle events are already tracked
+- [ ] Sentry/GlitchTip integration in `src/server/logger.ts` + `error.tsx`
+- [ ] CSP nonces (drop `'unsafe-inline'` for scripts)
+- [ ] Keyset pagination for deep result pages; caching (`cacheComponents`/ISR) for public pages once traffic grows
+- [ ] Docker image: bundle worker deps (or `pnpm deploy`) to shrink the ops layer further (currently ~1.27 GB total)
+- [ ] Anonymous favourites (localStorage) merged into the account on login
+- [ ] Seller phone verification (SMS/WhatsApp OTP) as a trust signal; still never auto-mark "verified"
+- [ ] Category-specific attributes (`Category.attributes` JSON is reserved) — e.g. storage/battery for phones
+- [ ] Market-price analysis using `PriceHistory` + sold listings (no AI pricing engine before there is data)
+- [ ] Kosovo launch: activate XK cities, `ALL`/`EUR` per market, `hreflang` if locale routes are added
+- [ ] Image moderation assist (NSFW/duplicate detection)
+- [ ] Saved searches / alerts (from the old ShiteSot spec) — only if the product wants them (needs an ADR)
+- [ ] Legal pages + cookie notice (no third-party cookies are used today)
+- [ ] Prisma: `searchVector` generated column causes drift in `migrate dev` — always `--create-only` and strip those lines

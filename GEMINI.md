@@ -1,4 +1,4 @@
-# GEMINI.md — ShiteSot
+# GEMINI.md — ShitShpejt
 
 @AGENTS.md
 

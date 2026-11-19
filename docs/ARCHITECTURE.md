@@ -1,177 +1,90 @@
-# ShiteSot — Architecture
+# ShitShpejt — Architecture
 
-**Principle:** one deployable Next.js app + one worker + Postgres. Modular by feature so any module can be extracted later, but nothing is extracted until traffic proves it's needed.
+**Principle:** one Next.js app + one worker process + Postgres. Modular by domain so pieces can be extracted later; nothing is extracted until traffic proves it's needed. Key decisions: `docs/adr/`.
 
 ```
-             ┌──────────── Hetzner Cloud VM (Docker Compose) ────────────┐
- Browser/PWA │  Caddy (TLS, HTTP/3, gzip/zstd)                            │
-  ─────────► │     │                                                      │
-             │     ▼                                                      │
-             │  web: Next.js standalone ──► Postgres 17 (+unaccent,pg_trgm)│
-             │     │   RSC / Server Actions        ▲                      │
-             │     │                               │ pg-boss queue        │
-             │     └──► worker: pg-boss jobs ──────┘                      │
-             └─────┬───────────────────────────────────────────────┬────┘
+             ┌──────────── Hetzner Cloud VM (Docker Compose) ─────────────┐
+ Browser/PWA │  Caddy (TLS, HTTP/3, zstd/gzip)                             │
+  ─────────► │     │                                                       │
+             │     ▼                                                       │
+             │  web: Next.js standalone ───► Postgres 17 (unaccent, pg_trgm)│
+             │     │  RSC / Server Actions        ▲                        │
+             │     │  /api/* route handlers       │ pg-boss schedules      │
+             │  worker: pg-boss (same image) ─────┘                        │
+             │  migrate: prisma migrate deploy + reference seed (one-shot) │
+             └─────┬───────────────────────────────────────────────┬──────┘
                    ▼                                               ▼
-        Hetzner Object Storage (S3)                 Resend · Sentry · Google OAuth
-        images: original + AVIF/WebP variants
+     Hetzner Object Storage (S3) — WebP variants        Resend (email) · Google OAuth (optional)
 ```
 
 ## Layers
 
 | Layer | Lives in | Rules |
 |---|---|---|
-| Routes / pages | `src/app/` | Thin. Fetch via `features/*/queries.ts`, render `features/*/components`. |
-| UI primitives | `src/ui/` | Design system: Glass, Button, Sheet, TabBar, PriceTag, Badge… No data fetching. |
-| Features | `src/features/<domain>/` | `schema.ts` (Zod) · `queries.ts` (reads, `server-only`) · `actions.ts` (Server Actions) · `service.ts` (business rules) · `components/` |
-| Server infra | `src/server/` | `db.ts`, `auth.ts`, `storage.ts`, `email/`, `jobs/`, `rate-limit.ts`, `audit.ts`, `search.ts` |
-| Worker | `src/worker/index.ts` | Registers pg-boss handlers. Reuses `features/*/service.ts`. |
-| Shared | `src/lib/` | Pure helpers: money, dates, slugs, i18n formatters. |
+| Routes | `src/app/` | Thin. Auth gate → call feature queries → render. |
+| UI primitives | `src/ui/` | Card, countdown, header/shell, tab bar, drawer, buttons. No data fetching (except the `Shell`, which reads session + categories). |
+| Features | `src/features/<domain>/` | `schema.ts` (Zod, shared client/server) · `rules.ts` (pure business rules, unit-tested) · `queries.ts` (reads, `server-only`) · `service.ts` (writes, transactions) · `actions.ts` (Server Actions: auth → rate limit → validate → service) · `components/` |
+| Server infra | `src/server/` | `db` (lazy Prisma 7 + pg adapter), `auth` (Better Auth), `authz` (`requireUser/Admin`, object-level checks), `rate-limit`, `audit`, `storage` (local/S3), `email` (console/Resend), `http` (same-origin + error mapping), `logger` (redacting JSON logs) |
+| Worker | `src/worker/index.ts` | pg-boss cron jobs reusing feature services. |
+| Shared | `src/lib/` | money, time/countdown, slug, phone. Pure. |
+| Config | `src/env.ts` | The only reader of `process.env` (except `proxy.ts`). Lazy Zod validation. |
 
-**Dependency direction:** `app → features → server → lib`. `ui` is imported by `app` and `features` only. Features don't import each other's internals; they go through `service.ts` exports.
+Dependency direction: `app → features → server → lib`. Features talk to each other through exported services/rules.
 
-## Folder structure
+## Domains
+
+| Domain | Highlights |
+|---|---|
+| `listings` | `rules.ts` (state table, `effectiveStatus`, activation, edit classification, contact eligibility) · `state.ts` **`transitionListing()` — the only writer of `Listing.status`** (conditional update guards races, writes timestamps, price history, analytics events, audit for admin actions, ends promotions on leaving ACTIVE) · `service.ts` (create/update/submit/sold/withdraw/delete/moderate/expire) · `queries.ts` (FTS discovery, home sections, detail) |
+| `media` | Upload pipeline (sharp → WebP 320/640/1280, EXIF stripped), orphan cleanup |
+| `auth` | Pure policy (`canManageListing`, `isListingOwner`, `needsModeration`), auth client + forms |
+| `catalog` | Category tree, cities (DB-backed, admin-managed) |
+| `favorites`, `reports`, `sellers`, `dashboard`, `account` | Buyer/seller features |
+| `promotions` | Eligibility rules (never beyond `expiresAt`), audited admin grants, idempotent payment activation, `PaymentProvider` boundary |
+| `admin` | Moderation, reports, users (ban/verify/trust), categories, promotion prices, audit log, health |
+| `analytics` | First-party events with daily-salted visitor hash + dedupe keys |
+
+## Listing lifecycle
 
 ```
-.
-├── prisma/
-│   ├── schema.prisma
-│   ├── migrations/
-│   └── seed.ts                 # DEV ONLY, records tagged DEMO
-├── prisma.config.ts
-├── messages/{sq,en}.json
-├── public/                     # icons, manifest assets
-├── src/
-│   ├── app/
-│   │   ├── [locale]/
-│   │   │   ├── (shell)/        # pages with bottom TabBar
-│   │   │   │   ├── page.tsx                 # Kryefaqja
-│   │   │   │   ├── kerko/page.tsx           # Search
-│   │   │   │   ├── ruajtur/page.tsx         # Saved
-│   │   │   │   ├── profili/page.tsx
-│   │   │   │   ├── k/[category]/page.tsx    # category landing
-│   │   │   │   └── q/[city]/page.tsx        # city landing
-│   │   │   ├── p/[slug]/page.tsx            # listing detail (SSR, SEO)
-│   │   │   ├── s/[seller]/page.tsx          # seller profile
-│   │   │   ├── shit/                        # create listing flow (fullscreen, no tabbar)
-│   │   │   ├── paneli/                      # seller dashboard + imports
-│   │   │   └── admin/                       # RBAC: ADMIN
-│   │   ├── api/
-│   │   │   ├── auth/[...all]/route.ts       # Better Auth
-│   │   │   ├── uploads/route.ts             # presigned S3 URLs
-│   │   │   └── webhooks/[provider]/route.ts # payments (phase 3)
-│   │   ├── sitemap.ts · robots.ts · manifest.ts
-│   │   └── sw.ts                            # Serwist
-│   ├── features/
-│   │   ├── listings/  search/  sellers/  saved/  alerts/
-│   │   ├── imports/   pricing/  promotions/  payments/
-│   │   ├── moderation/  analytics/  notifications/
-│   ├── server/
-│   ├── worker/
-│   ├── ui/
-│   ├── lib/
-│   ├── env.ts
-│   └── styles/globals.css     # Tailwind v4 @theme tokens + glass utilities
-├── tests/e2e/
-├── docker/ (Dockerfile, Caddyfile)
-├── compose.yaml · compose.prod.yaml
-└── docs/ (ARCHITECTURE, BRAND, DEPLOYMENT, adr/, TODO)
+          submit (needs review)          approve (first time: publishedAt=now, expiresAt=+48h)
+ DRAFT ───────────────────────► PENDING_REVIEW ─────────────────────────────► ACTIVE ──mark_sold──► SOLD
+   ▲  │ submit (trusted) ──────────────────────────────────────────────────────▲  │  ▲                │
+   │  │                          │ reject            material_edit (clock runs) │  │  └──unmark_sold───┘
+   │  │                          ▼                   ◄──────────────────────────┘  │   (only while expiresAt > now)
+   └──┴── withdraw ◄──────── REJECTED ── resubmit ──►                              │ expire (worker, idempotent)
+                                                                                   ▼
+                     any (admin) ──remove──► REMOVED                            EXPIRED (frozen, no relisting)
 ```
 
-## Data model (core)
+Public = `status = ACTIVE AND expiresAt > now() AND seller not banned/deleted`, applied in every query, so correctness never depends on the worker.
 
-All IDs are `cuid2` strings. All tables have `createdAt` and `updatedAt`. Money is `Int` (lek).
+## Data model (Prisma, `prisma/schema.prisma`)
 
-| Model | Key fields | Notes |
+`User` (Better Auth core + role, city, bio, whatsapp, contactConsent, verifiedAt, trusted, proUntil, bannedAt, deletedAt) · `Session/Account/Verification` · `Category` (2-level tree, `attributes` JSON reserved) · `City` (country for Kosovo expansion) · `Listing` (priceMinor + currency, reference price + source, lifecycle timestamps, moderation fields, denormalised view/contact/favourite counters, generated `searchVector`) · `ListingImage` · `PriceHistory` (baseline for future market-price analysis) · `Favorite` · `Report` · `PromotionProduct` (admin prices) · `Promotion` · `Payment` (idempotencyKey, providerRef unique) · `AnalyticsEvent` (dedupeKey unique) · `AuditLog` · `RateLimit` · `Heartbeat`.
+
+DB guard rails: `CHECK (priceMinor > 0)`, `CHECK (status <> 'ACTIVE' OR (publishedAt IS NOT NULL AND expiresAt IS NOT NULL))`. Indexes: `(status, expiresAt)`, `(status, publishedAt DESC)`, `(status, categoryId, expiresAt)`, `(status, cityId, expiresAt)`, `(status, priceMinor)`, `(sellerId, status)`, GIN on `searchVector` and `unaccent(title)` trigrams.
+
+> **Migration gotcha:** `searchVector` is a generated column Prisma can't model. `prisma migrate dev` will try to drop/alter it; create migrations with `--create-only` and delete those lines (see `prisma/migrations/20261119030000_heartbeat` for the pattern).
+
+## Jobs (`src/worker`)
+
+| Job | Schedule (Europe/Tirane) | Does |
 |---|---|---|
-| `User` | email, name, image, role `BUYER\|SELLER\|ADMIN` (default BUYER; becomes SELLER on first listing), phoneVerifiedAt, deletedAt | + Better Auth `Account`, `Session`, `Verification` |
-| `SellerProfile` | userId (1:1), type `INDIVIDUAL\|PROFESSIONAL`, displayName, slug, cityId, whatsapp (E.164), contactConsent bool, verifiedAt | contact shown only if `contactConsent` |
-| `Category` | parentId, slug, nameSq, nameEn, specSchema (JSON, Zod-compatible), sort, active | tree, 2 levels |
-| `City` | slug, name, lat, lng, active | Tirana, Shkodër first |
-| `Listing` | sellerId, categoryId, cityId, title, description, priceLek, condition `NEW\|USED`, status, specs JSON, slug, publishedAt, urgentUntil?, lastConfirmedAt, soldAt, searchVector (tsvector, generated) | |
-| `ListingStatus` | `DRAFT PENDING_REVIEW ACTIVE RESERVED SOLD EXPIRED REMOVED` | transitions only via `transitionListing()` |
-| `ListingImage` | listingId, key, width, height, blurhash, position | variants derived from key |
-| `PriceHistory` | listingId, priceLek, changedAt | row on publish + every price change; drop = latest < previous |
-| `SavedListing` | userId, listingId (unique pair) | |
-| `SavedSearch` | userId, query, filters JSON, frequency `INSTANT\|DAILY\|OFF`, lastNotifiedAt | |
-| `Notification` | userId, type, payload JSON, readAt, channel | in-app + email |
-| `ContactClick` | listingId, userId?, sessionHash, channel, createdAt | a click is **not** a sale |
-| `ListingStatDaily` | listingId, date, views, contactClicks, saves | aggregated by worker |
-| `Report` | listingId/userId, reporterId, reason, status, resolvedById | moderation queue |
-| `ImportJob` | sellerId, source `CSV\|XLSX\|XML\|WOOCOMMERCE`, status, mapping JSON, stats JSON | |
-| `ImportRow` | jobId, rowNumber, externalId, raw JSON, errors JSON, listingId? | |
-| `ExternalRef` | sellerId, source, externalId, listingId | `@@unique([sellerId, source, externalId])` stops duplicate imports |
-| `PromotionProduct` | code, nameSq, priceLek, durationHours, active | admin-configurable pricing |
-| `Promotion` | listingId, productId, startsAt, endsAt, paymentId? | phase 3 |
-| `Payment` | userId, provider, providerRef (unique), amountLek, status, idempotencyKey (unique), raw JSON | provider-agnostic |
-| `AuditLog` | actorId, action, entity, entityId, before JSON, after JSON, ip | every admin mutation |
+| `listings.expire` | every minute (+ on boot) | `ACTIVE && expiresAt <= now` → `EXPIRED` via `transitionListing` |
+| `promotions.expire` | every 5 min | end promotions past `endsAt` |
+| `images.cleanup` | hourly | delete uploads never attached after 24 h |
+| `ratelimit.cleanup` | daily | prune old counters |
 
-### Indexes that matter
+Every handler is idempotent and writes a `Heartbeat` row shown on `/admin/shendeti`.
 
-- `Listing`: `GIN(searchVector)`, `GIN(title gin_trgm_ops)`, `(status, publishedAt DESC)`, `(status, categoryId, cityId, publishedAt DESC)`, `(status, priceLek)`, `(sellerId, status)`, partial `(urgentUntil) WHERE urgentUntil IS NOT NULL`
-- `PriceHistory`: `(listingId, changedAt DESC)`
-- `SavedSearch`: `(frequency, lastNotifiedAt)`
-- `ContactClick` / `ListingStatDaily`: `(listingId, date)`
+## Routes
 
-## Search
+Public: `/` · `/kerko` · `/kategori/[slug]` · `/p/[slug]` · `/shitesi/[id]` · `/ruajtura` (login to sync) · auth pages (`/hyr`, `/regjistrohu`, `/harrova-fjalekalimin`, `/rivendos-fjalekalimin`).
+Seller: `/shit` · `/paneli` · `/paneli/njoftimet/[id]` (preview/manage) · `/paneli/njoftimet/[id]/ndrysho` · `/llogaria`.
+Admin: `/admin` (+ `moderimi`, `raportet`, `perdoruesit`, `kategorite`, `promovimet`, `auditimi`, `shendeti`).
+API: `/api/auth/*` (Better Auth) · `POST /api/uploads` · `POST /api/account/avatar` · `POST /api/contact/[id]` (eligibility re-check → 303 to WhatsApp) · `GET /api/media/*` (local driver only) · `GET /api/health`.
 
-Postgres full-text search with **`unaccent` + `simple` config** (Postgres has no Albanian stemmer) plus **`pg_trgm`** for typos and partial matches. Searching `celular` finds `çelular`, and `iphon` finds `iPhone`.
+## SEO lifecycle
 
-```sql
-searchVector tsvector GENERATED ALWAYS AS (
-  setweight(to_tsvector('simple', immutable_unaccent(coalesce(title,''))), 'A') ||
-  setweight(to_tsvector('simple', immutable_unaccent(coalesce(description,''))), 'C')
-) STORED
-```
-
-Ranking: `ts_rank` × freshness decay × (1 + small promotion boost, capped). Promoted results are labelled and limited to fixed slots. Move to Meilisearch/Typesense only when p95 search exceeds 150ms at real traffic.
-
-## Background jobs (pg-boss)
-
-| Job | Schedule | Does |
-|---|---|---|
-| `image.process` | on upload | sharp → AVIF + WebP at 320/640/1080/1600, blurhash |
-| `alerts.match` | on listing publish / price drop | match `SavedSearch` with `INSTANT` frequency |
-| `alerts.digest` | daily 08:00 Europe/Tirane | DAILY digest emails |
-| `listings.expireUrgent` | every 5 min | clear `urgentUntil` past deadline (never reset) |
-| `listings.staleCheck` | daily | ask sellers to confirm availability after 21 days; expire after 30 more without reply |
-| `promotions.expire` | every 5 min | end promotions at `endsAt` |
-| `imports.run` | on demand | parse → validate → upsert via `ExternalRef` |
-| `stats.rollup` | hourly | aggregate views/clicks into `ListingStatDaily` |
-
-All handlers are idempotent.
-
-## Rendering & caching
-
-- Listing detail, category and city pages: **server-rendered**, cached with `revalidateTag("listing:<id>")` on change. Full SEO metadata, JSON-LD `Product` + `Offer`, OG image from the first photo.
-- Search results: dynamic RSC. `noindex` for filter combinations that aren't whitelisted landing pages.
-- Sold listings: keep the page with a **"Shitur"** state and similar items for 30 days, then return **410**. Expired listings: `noindex`.
-- Client components only where interaction requires them (sheets, galleries, forms).
-
-## Security
-
-- Better Auth sessions (httpOnly, secure, SameSite=Lax). RBAC helper `requireRole()`, ownership helper `requireListingOwner()`.
-- Zod on every input. Prisma only, no raw SQL string interpolation (`$queryRaw` with tagged templates only).
-- Rate limits (Postgres-backed, `rate-limiter-flexible`): auth, listing create, contact click, report, upload, search.
-- Uploads: presigned PUT with content-type + size limit (10 MB), server re-validates with sharp, strips EXIF/GPS.
-- Strict CSP via middleware nonce, HSTS, `X-Content-Type-Options`, `Referrer-Policy`.
-- Audit log for every admin action. Account deletion = soft delete + PII scrub job.
-
-## Environments
-
-`development` (local Docker: Postgres, MinIO, Mailpit) → `staging` (small Hetzner VM, separate DB and bucket) → `production`. Config only via env, validated in `src/env.ts`. See `.agents/skills/shitesot-deploy-hetzner/SKILL.md`.
-
-## Build order (MVP)
-
-1. Scaffold, env, design tokens, app shell (TabBar, glass chrome), i18n
-2. Prisma schema + migrations + auth
-3. Seller profile + create-listing flow + image upload pipeline
-4. Listing detail (SEO, share, WhatsApp contact)
-5. Search + filters + home sections (new, price drops)
-6. Saved listings + price history / drop badges
-7. Seller dashboard + CSV/XLSX import
-8. Admin: moderation queue, reports, audit log, metrics
-9. Analytics events, sitemap, OG images
-10. PWA (manifest, Serwist, install prompt)
-
-Phase 2+ (alerts, urgent sales, payments, WooCommerce) per `docs/MASTER_PROMPT.md` §20.
+ACTIVE → indexable, `Product`/`Offer` JSON-LD (InStock), in sitemap. SOLD/EXPIRED → reachable for 30 days with a clear state + similar deals, `noindex, follow`, removed from sitemap; then 404. DRAFT/PENDING/REJECTED/REMOVED → 404 for everyone except owner/admin. Search pages and filtered category pages are `noindex`. `robots.txt` disallows everything outside production.

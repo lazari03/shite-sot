@@ -1,9 +1,11 @@
 ---
 name: shitesot-deploy-hetzner
-description: ShiteSot infrastructure and deployment on Hetzner. Use when working on Dockerfile, docker compose, Caddy, GitHub Actions CI/CD, environment variables (src/env.ts, .env.example), staging/production setup, database backups, Hetzner Cloud servers, Hetzner Object Storage buckets, monitoring, or release procedures.
+description: ShitShpejt infrastructure and deployment on Hetzner. Use when working on Dockerfile, docker compose, Caddy, GitHub Actions CI/CD, environment variables (src/env.ts, .env.example), staging/production setup, database backups, Hetzner Cloud servers, Hetzner Object Storage buckets, monitoring, or release procedures.
 ---
 
-# ShiteSot on Hetzner
+# ShitShpejt on Hetzner
+
+> The implemented setup is documented in `docs/DEPLOYMENT.md` (`docker/Dockerfile` roles web | worker | migrate, `compose.prod.yaml`, `scripts/deploy.sh` with auto-rollback). Where this skill differs, DEPLOYMENT.md wins.
 
 **Target:** simplest production-ready setup. One Hetzner Cloud VM per environment running Docker Compose. No Kubernetes. Upgrade path is documented, not built.
 
@@ -65,7 +67,7 @@ services:
     restart: unless-stopped
   worker:
     image: ghcr.io/lazari03/shite-sot:${TAG}
-    command: ["node", "dist/worker.js"]
+    command: ["worker"]
     env_file: .env
     depends_on: { migrate: { condition: service_completed_successfully } }
     restart: unless-stopped
@@ -109,7 +111,7 @@ All validated in `src/env.ts` with Zod (`@t3-oss/env-nextjs` or a plain Zod pars
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | |
 | `S3_ENDPOINT` | `https://fsn1.your-objectstorage.com` |
 | `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL` | |
-| `RESEND_API_KEY`, `EMAIL_FROM` | `ShiteSot <njoftime@shitesot.al>` |
+| `RESEND_API_KEY`, `EMAIL_FROM` | `ShitShpejt <njoftime@shitesot.al>` |
 | `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN` | |
 | `SITE_URL` | canonical base URL |
 | `APP_ENV` | `development \| staging \| production` (distinct from NODE_ENV) |

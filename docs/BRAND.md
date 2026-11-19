@@ -1,97 +1,51 @@
-# ShiteSot — Brand
+# ShitShpejt — Brand
 
-**Tagline:** _Shite shpejt. Gjej lirë._ (Sell fast. Find cheap.)
+**Tagline:** _Okazionet nuk presin._ (Deals don't wait.)
 
-**Personality:** fast, honest, local, modern. A confident Albanian product with a European finish, not a WordPress classifieds theme. It should feel like a native iOS app that happens to run in the browser.
+**Personality:** fast, honest, local, confident. A sharp Albanian product, not a classifieds theme. Urgency comes from the real 48-hour clock, never from hype.
+
+Visual source of truth: `docs/design/prototype-v4.html`. Tokens live in `src/styles/globals.css` (`@theme`).
 
 ## Colour
 
-The palette is built on Albanian flag red (**Kuq**), a warm stone neutral (**Gur**), and an Adriatic accent (**Deti**). Red is the brand and primary-action colour. Status colours are kept separate from brand red, so "urgent" and "error" never look like the logo.
-
-### Kuq (brand red), primary actions, logo, Sell button
-
 | Token | Hex | Use |
 |---|---|---|
-| `kuq-50` | `#FEF2F2` | tinted backgrounds |
-| `kuq-100` | `#FDE3E3` | chip bg |
-| `kuq-200` | `#FBC9CA` | |
-| `kuq-300` | `#F79FA1` | |
-| `kuq-400` | `#F0666A` | dark-mode primary |
-| **`kuq-500`** | **`#E41E20`** | **brand / primary (5.8:1 on white)** |
-| `kuq-600` | `#C8161A` | pressed, danger text |
-| `kuq-700` | `#A31216` | |
-| `kuq-800` | `#861418` | |
-| `kuq-900` | `#6F161A` | |
-| `kuq-950` | `#3D0709` | |
-
-### Gur (warm neutral), text, surfaces, borders
-
-| Token | Hex | Use |
-|---|---|---|
-| `gur-0` | `#FFFFFF` | cards (light) |
-| `gur-25` | `#FBFAF9` | app background (light) |
-| `gur-50` | `#F5F4F2` | sunken surfaces |
-| `gur-100` | `#ECEAE7` | dividers |
-| `gur-200` | `#DAD7D3` | borders |
-| `gur-300` | `#BDB9B4` | disabled |
-| `gur-400` | `#8F8A84` | placeholder |
-| `gur-500` | `#6B6661` | secondary text |
-| `gur-600` | `#4F4B47` | |
-| `gur-700` | `#3A3734` | |
-| `gur-800` | `#252321` | cards (dark) |
-| `gur-900` | `#161514` | app background (dark) |
-| `gur-950` | `#0C0B0B` | primary text (light), prices |
-
-### Deti (Adriatic), links, focus rings, info
-
-| Token | Hex |
-|---|---|
-| `deti-400` | `#4D94FF` |
-| `deti-500` | `#0A6CFF` |
-| `deti-600` | `#0056D6` |
-
-### Semantic (marketplace meaning)
-
-| Token | Hex | Meaning | Albanian label |
-|---|---|---|---|
-| `drop` | `#0F9D58` | genuine price reduction (good for buyer) | **Ulje çmimi** |
-| `urgent` | `#FF7A00` | seller-set urgent sale | **Urgjent** / _Shitet brenda 48 orëve_ |
-| `fresh` | `#0A6CFF` | listed in last 24h | **E re** |
-| `sold` | `#6B6661` | sold / reserved | **Shitur** / **Rezervuar** |
-| `sponsored` | `gur-950` on glass | paid placement, always labelled, never disguised | **Sponsorizuar** |
-| `success` | `#12B76A` | | |
-| `warning` | `#F5A524` | | |
-| `danger` | `kuq-600` | | |
+| `ink` | `#14231b` | primary text, hero background, dark buttons, prices |
+| `ink-2` | `#1f3328` | hero clock panel, hover on dark |
+| `paper` | `#f4f5ef` | app background |
+| `paper-2` | `#e7eae1` | hover/ghost, sunken |
+| `card` | `#ffffff` | cards, forms |
+| `line` | `#dde2d6` | 1px borders |
+| `line-strong` | `#98a395` | hovered borders |
+| `muted` | `#646e63` | secondary text |
+| `lime` | `#c6f24e` | the one bright accent: primary CTA (*Shit diçka*, *Shkruaj në WhatsApp*), clock digits on ink, "I ri" tag |
+| `lime-hover` | `#b5e43a` | |
+| `lime-deep` | `#5f8a00` | logo "shpejt", focus ring, success ticks (AA on paper) |
+| `clay` | `#dc4f28` | urgency (< 6 h left), saved heart, errors, live dot |
+| `sage` / `sage-ink` | `#e3f2b8` / `#3c5a00` | positive notes, "Çmim fiks" pill, how-it-works band |
 
 **Rules**
-- Exactly **one** red primary action per screen (usually *Shit* / *Publiko*).
-- Prices are always `gur-950` (dark: `gur-0`), bold, tabular numerals. Never red. Red prices read as errors.
-- A struck-through old price appears **only** next to a `drop` badge backed by `PriceHistory`.
-- Dark mode is first-class, not an afterthought.
+- Lime is an accent, not a background for large areas (except the primary button). Never use lime text on paper (contrast).
+- Prices: `ink`, Bricolage 700, tabular numerals, never coloured.
+- Urgency escalates only with the real deadline: ink fuse → clay fuse + clay time under 6 h. No blinking (the hero's live dot is the single, motion-reduced exception).
+- No percentage-discount badges. A seller-stated new price is plain muted text with its source.
+- "Sponsorizuar" is an ink tag on the photo, always.
+- No gradients (the logo's conic mark is the exception), no glow, minimal shadows (drawer only).
+
+## Shape & spacing
+Radii: `7px` (buttons, inputs) · `12px` (cards, panels) · `20px` (hero, big panels). Borders 1px `line`. Content max-width 1320px, gutters 16px mobile / 32px desktop. Touch targets ≥ 44px.
 
 ## Typography
 
-| Role | Family | Why |
-|---|---|---|
-| Display / headings / logo wordmark | **Bricolage Grotesque** (variable, 600–800) | characterful, warm, distinctly not "default SaaS"; full Latin Extended (ë, ç) |
-| UI / body | **Geist** (variable, 400–600) | crisp app-like UI face, excellent tabular numerals for prices |
-| Numerals / prices | Geist with `font-variant-numeric: tabular-nums` | prices align in lists |
+| Role | Family |
+|---|---|
+| Display, headings, prices, clock | **Bricolage Grotesque** 700–800, tracking −0.03 to −0.05em |
+| UI / body | **DM Sans** 400–700, 15px body (16px in inputs to avoid iOS zoom) |
 
-Both load via `next/font/google` with `subsets: ["latin", "latin-ext"]` and `display: "swap"`. Always test strings with **ë, Ë, ç, Ç**.
-
-**Scale** (mobile-first, rem): `11 / 13 / 15 (body) / 17 / 20 / 24 / 30 / 38`. Body is 15–17px on mobile. Line-height 1.45 for body, 1.1 for display. Headings use `letter-spacing: -0.02em`.
+Loaded via `next/font/google` with `latin-ext` (ë, ç).
 
 ## Logo
-
-Wordmark **ShiteSot** in Bricolage Grotesque 800, `-0.03em` tracking. "Shite" in `gur-950`, "Sot" in `kuq-500`. App icon: white bold **S** on `kuq-500`, rounded-square (iOS mask safe). Do **not** use the double-headed eagle; it's a state symbol.
-
-## Iconography
-
-**Lucide** (`lucide-react`), 1.75px stroke, 20/24px. Filled variants only for active tab states.
+Wordmark `shit` (ink) + `shpejt` (lime-deep), Bricolage 800, −0.045em, preceded by the conic "fuse" mark (70% lime, 30% ink, ink ring). App icon: the mark on ink.
 
 ## Voice (Albanian first)
-
-- Short, direct, friendly. Use second person singular (**ti**): _"Shit telefonin në 2 minuta."_
-- Never hype or fake urgency. Avoid _"Vetëm sot!!!"_ unless it's literally true.
-- Numbers: `22 000 L` / `22 000 lekë` using a thin space as the thousands separator (`Intl.NumberFormat("sq-AL")`).
-- Key UI strings: **Shit** (Sell), **Kërko** (Search), **Ruajtur** (Saved), **Profili**, **Kryefaqja** (Home), **Publiko**, **Kontakto në WhatsApp**, **Shëno si të shitur**.
+Short, direct, second person singular (*ti*). Honest urgency only: "Mbaron për 5h 17m" yes, "Vetëm sot!!!" no. Key strings: **Shit diçka**, **Kërko**, **Të ruajtura**, **Shkruaj në WhatsApp**, **Shëno si të shitur**, **Çmim fiks**, **Mbarojnë së shpejti**, **Skadoi**, **Shitur**.

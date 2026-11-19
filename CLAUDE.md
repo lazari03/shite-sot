@@ -1,4 +1,4 @@
-# CLAUDE.md — ShiteSot
+# CLAUDE.md — ShitShpejt
 
 @AGENTS.md
 
@@ -6,7 +6,7 @@
 
 - **Skills** are in `.claude/skills/` (symlinked to the shared `.agents/skills/`). They load automatically by description. Use `shitesot-design` before any UI work.
 - **Subagents** are in `.claude/agents/`:
-  - `ui-builder`: builds screens and components using the design system and liquid-glass rules.
+  - `ui-builder`: builds screens and components using the prototype-derived design system.
   - `backend-engineer`: Prisma schema, server actions, auth, jobs, search, imports.
   - `reviewer`: security, correctness and spec-compliance gate. Run it before opening any PR.
 - **Plan mode first** for anything that touches the Prisma schema, auth, payments, or listing state transitions.
