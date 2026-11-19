@@ -32,3 +32,9 @@ test-results/
 
 # local agent state (shared config IS committed)
 .claude/settings.local.json
+
+# local uploads
+.storage/
+.storage-test/
+src/generated/
+.storage-e2e/

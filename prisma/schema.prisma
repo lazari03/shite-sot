@@ -1,0 +1,434 @@
+// ShitShpejt — 48-hour fixed-price flash marketplace.
+// Money: integer minor units (EUR cents; ALL has no subunit, so 1 = 1 lek).
+// Time: UTC timestamps. Rendered in Europe/Tirane.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Currency {
+  EUR
+  ALL
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  SOLD
+  EXPIRED
+  REJECTED
+  REMOVED
+}
+
+enum ListingCondition {
+  NEW
+  LIKE_NEW
+  VERY_GOOD
+  GOOD
+  FAIR
+}
+
+enum ReportReason {
+  MISLEADING_PRICE
+  FAKE_PHOTOS
+  WRONG_CONDITION
+  PROHIBITED_ITEM
+  SCAM
+  DUPLICATE
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum PromotionPlacement {
+  FEATURED
+  HOMEPAGE_SPOTLIGHT
+  CATEGORY_SPOTLIGHT
+}
+
+enum PromotionStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum EventType {
+  LISTING_VIEW
+  CATEGORY_VIEW
+  SEARCH
+  CONTACT_CLICK
+  FAVORITE_ADDED
+  FAVORITE_REMOVED
+  LISTING_SUBMITTED
+  LISTING_ACTIVATED
+  LISTING_EXPIRED
+  LISTING_SOLD
+  PROMOTION_ACTIVATED
+}
+
+// ---------- Auth (Better Auth core tables + app fields) ----------
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  role          Role      @default(USER)
+  // Public seller profile
+  city          String?
+  bio           String?
+  // WhatsApp number in E.164, only shown when contactConsent = true
+  whatsapp      String?
+  contactConsent Boolean  @default(false)
+  // Set by an admin after real verification. Never set automatically.
+  verifiedAt    DateTime?
+  // Trusted sellers skip pre-moderation.
+  trusted       Boolean   @default(false)
+  proUntil      DateTime?
+  bannedAt      DateTime?
+  banReason     String?
+  deletedAt     DateTime?
+
+  sessions      Session[]
+  accounts      Account[]
+  listings      Listing[]
+  favorites     Favorite[]
+  reports       Report[]  @relation("ReportReporter")
+  images        ListingImage[]
+  payments      Payment[]
+  auditLogs     AuditLog[]
+
+  @@index([role])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ---------- Catalogue ----------
+
+model Category {
+  id         String     @id @default(cuid())
+  slug       String     @unique
+  name       String
+  nameEn     String
+  parentId   String?
+  parent     Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children   Category[] @relation("CategoryTree")
+  sortOrder  Int        @default(0)
+  active     Boolean    @default(true)
+  // Reserved for category-specific attributes (future): JSON describing fields.
+  attributes Json?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  listings   Listing[]
+
+  @@index([parentId, sortOrder])
+}
+
+model City {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  name      String
+  country   String    @default("AL")
+  sortOrder Int       @default(0)
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  listings  Listing[]
+}
+
+// ---------- Listings ----------
+
+model Listing {
+  id                   String           @id @default(cuid())
+  sellerId             String
+  seller               User             @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  title                String
+  slug                 String           @unique
+  description          String
+  priceMinor           Int
+  currency             Currency         @default(EUR)
+  // Optional reference price ("new price") with its source. Never invented.
+  referencePriceMinor  Int?
+  referencePriceSource String?
+  categoryId           String
+  category             Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  condition            ListingCondition
+  cityId               String
+  city                 City             @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  // Approximate area only (e.g. "Blloku"). Never an exact home address.
+  locationNote         String?
+  status               ListingStatus    @default(DRAFT)
+  submittedAt          DateTime?
+  // Set exactly once, on first activation. expiresAt = publishedAt + 48h and never changes.
+  publishedAt          DateTime?
+  expiresAt            DateTime?
+  soldAt               DateTime?
+  expiredAt            DateTime?
+  removedAt            DateTime?
+  reviewedAt           DateTime?
+  reviewedById         String?
+  rejectionReason      String?
+  // Denormalised counters (traffic, not sales).
+  viewCount            Int              @default(0)
+  contactClickCount    Int              @default(0)
+  favoriteCount        Int              @default(0)
+  // Postgres full-text search vector, maintained by a generated column (see migration).
+  searchVector         Unsupported("tsvector")?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  images               ListingImage[]
+  priceHistory         PriceHistory[]
+  favorites            Favorite[]
+  reports              Report[]
+  promotions           Promotion[]
+  events               AnalyticsEvent[]
+
+  @@index([status, expiresAt])
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([status, categoryId, expiresAt])
+  @@index([status, cityId, expiresAt])
+  @@index([status, priceMinor])
+  @@index([sellerId, status])
+}
+
+model ListingImage {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  // Null until attached to a listing. Orphans are cleaned up by the worker.
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  // Storage key prefix; variants are <key>/<size>.webp
+  key       String   @unique
+  width     Int
+  height    Int
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([listingId, position])
+  @@index([ownerId, listingId, createdAt])
+}
+
+model PriceHistory {
+  id         String   @id @default(cuid())
+  listingId  String
+  listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  priceMinor Int
+  currency   Currency
+  changedAt  DateTime @default(now())
+
+  @@index([listingId, changedAt(sort: Desc)])
+}
+
+model Favorite {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, listingId])
+  @@index([listingId])
+}
+
+model Report {
+  id           String       @id @default(cuid())
+  listingId    String
+  listing      Listing      @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  reporterId   String?
+  reporter     User?        @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  reason       ReportReason
+  details      String?
+  status       ReportStatus @default(OPEN)
+  resolvedById String?
+  resolvedAt   DateTime?
+  resolution   String?
+  createdAt    DateTime     @default(now())
+
+  @@index([status, createdAt])
+  @@index([listingId])
+}
+
+// ---------- Monetisation ----------
+
+model PromotionProduct {
+  id            String              @id @default(cuid())
+  code          String              @unique
+  name          String
+  placement     PromotionPlacement?
+  priceMinor    Int
+  currency      Currency            @default(EUR)
+  durationHours Int?
+  active        Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  promotions    Promotion[]
+}
+
+model Promotion {
+  id          String             @id @default(cuid())
+  listingId   String
+  listing     Listing            @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  productId   String
+  product     PromotionProduct   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  placement   PromotionPlacement
+  status      PromotionStatus    @default(PENDING_PAYMENT)
+  startsAt    DateTime?
+  // Always <= listing.expiresAt. A promotion never extends a listing's validity.
+  endsAt      DateTime?
+  paymentId   String?            @unique
+  payment     Payment?           @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  grantedById String?
+  note        String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([placement, status, endsAt])
+  @@index([listingId, status])
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  provider       String
+  providerRef    String?       @unique
+  idempotencyKey String        @unique
+  amountMinor    Int
+  currency       Currency
+  status         PaymentStatus @default(PENDING)
+  raw            Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  promotion      Promotion?
+
+  @@index([status, createdAt])
+}
+
+// ---------- Ops ----------
+
+model AnalyticsEvent {
+  id         String    @id @default(cuid())
+  type       EventType
+  listingId  String?
+  listing    Listing?  @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  categoryId String?
+  userId     String?
+  // Salted daily hash of IP + UA. Never the raw IP.
+  visitorHash String?
+  // Unique key used to dedupe (e.g. one view per visitor per listing per day).
+  dedupeKey  String?   @unique
+  meta       Json?
+  createdAt  DateTime  @default(now())
+
+  @@index([type, createdAt])
+  @@index([listingId, type, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model RateLimit {
+  key         String   @id
+  windowStart DateTime
+  count       Int
+
+  @@index([windowStart])
+}
+
+/** Worker heartbeats / last job runs, shown on the admin health page. */
+model Heartbeat {
+  name    String   @id
+  at      DateTime
+  detail  Json?
+}

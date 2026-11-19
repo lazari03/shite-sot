@@ -111,7 +111,7 @@ All validated in `src/env.ts` with Zod (`@t3-oss/env-nextjs` or a plain Zod pars
 | `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL` | |
 | `RESEND_API_KEY`, `EMAIL_FROM` | `ShiteSot <njoftime@shitesot.al>` |
 | `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN` | |
-| `NEXT_PUBLIC_SITE_URL` | canonical base URL |
+| `SITE_URL` | canonical base URL |
 | `APP_ENV` | `development \| staging \| production` (distinct from NODE_ENV) |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | phase 2 |
 
