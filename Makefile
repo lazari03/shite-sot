@@ -95,6 +95,69 @@ deploy: ## On the server: deploy TAG with health check + auto-rollback
 rollback: ## On the server: redeploy the previous tag
 > bash scripts/deploy.sh "$$(cat .previous_tag)"
 
+# ---------- deploy to your Hetzner server (run from your laptop) ----------
+# First time:   make server-setup HOST=1.2.3.4
+#               make prod-env DOMAIN=shitshpejt.al EMAIL=you@example.com   (then add RESEND_API_KEY)
+#               make server-env HOST=1.2.3.4
+#               make ship HOST=1.2.3.4
+# Every deploy: make ship HOST=1.2.3.4
+# Tip: put the line HOST=1.2.3.4 in a file called .deploy.local to stop typing it.
+-include .deploy.local
+HOST       ?=
+SSH_USER   ?= deploy
+REMOTE     := $(SSH_USER)@$(HOST)
+APP_DIR    := /opt/shitshpejt
+PLATFORM   ?= linux/amd64
+REPO       ?= lazari03/shite-sot
+DEPLOY_TAG := $(shell git describe --always --dirty 2>/dev/null || echo local)
+IMAGE_REF  := ghcr.io/$(REPO):$(DEPLOY_TAG)
+ON_SERVER  := cd $(APP_DIR) && TAG=$$(cat .current_tag) docker compose -f compose.prod.yaml
+
+.PHONY: need-host server-setup prod-env server-env ship server-status server-logs server-ssh server-rollback server-admin server-backup
+need-host:
+> @test -n "$(HOST)" || (echo "Set HOST to your Hetzner server IP, e.g. make $(MAKECMDGOALS) HOST=1.2.3.4" && exit 1)
+
+server-setup: need-host ## 1. Prepare a fresh server (Docker, firewall, deploy user). HOST=ip
+> ssh root@$(HOST) 'bash -s' < scripts/bootstrap-server.sh
+
+prod-env: ## 2. Create production env files with random secrets. DOMAIN=... EMAIL=...
+> @test -n "$(DOMAIN)" -a -n "$(EMAIL)" || (echo "Usage: make prod-env DOMAIN=shitshpejt.al EMAIL=you@example.com" && exit 1)
+> bash scripts/make-prod-env.sh $(DOMAIN) $(EMAIL)
+
+server-env: need-host ## 3. Upload the env files to the server
+> @grep -qE '^RESEND_API_KEY=.+' .env.production || (echo "Add your RESEND_API_KEY to .env.production first" && exit 1)
+> scp .env.production $(REMOTE):$(APP_DIR)/.env
+> scp .env.db.production $(REMOTE):$(APP_DIR)/.env.db
+> scp .deploy.env.production $(REMOTE):$(APP_DIR)/.deploy.env
+> ssh $(REMOTE) 'chmod 600 $(APP_DIR)/.env $(APP_DIR)/.env.db $(APP_DIR)/.deploy.env'
+
+ship: need-host ## 4. Build here, upload, migrate, start, health check (auto-rollback)
+> docker buildx build --platform $(PLATFORM) -f docker/Dockerfile -t $(IMAGE_REF) --load .
+> @echo "Uploading image (a few hundred MB)..."
+> docker save $(IMAGE_REF) | gzip -1 | ssh $(REMOTE) 'gunzip | docker load'
+> scp compose.prod.yaml scripts/deploy.sh $(REMOTE):$(APP_DIR)/
+> scp docker/Caddyfile $(REMOTE):$(APP_DIR)/docker/Caddyfile
+> ssh $(REMOTE) 'cd $(APP_DIR) && SKIP_PULL=1 IMAGE_REPO=$(REPO) bash deploy.sh $(DEPLOY_TAG)'
+
+server-status: need-host ## Show containers on the server
+> ssh $(REMOTE) '$(ON_SERVER) ps'
+
+server-logs: need-host ## Follow web + worker logs on the server
+> ssh -t $(REMOTE) '$(ON_SERVER) logs -f --tail 100 web worker'
+
+server-ssh: need-host ## Open a shell on the server
+> ssh -t $(REMOTE) 'cd $(APP_DIR) && exec bash'
+
+server-rollback: need-host ## Go back to the previous version
+> ssh $(REMOTE) 'cd $(APP_DIR) && SKIP_PULL=1 IMAGE_REPO=$(REPO) bash deploy.sh "$$(cat .previous_tag)"'
+
+server-admin: need-host ## Make a registered user admin: EMAIL=you@example.com
+> @test -n "$(EMAIL)" || (echo "Usage: make server-admin EMAIL=you@example.com" && exit 1)
+> ssh $(REMOTE) '$(ON_SERVER) run --rm migrate admin-grant $(EMAIL)'
+
+server-backup: need-host ## Download a database backup (backup-DATE.dump)
+> ssh $(REMOTE) '$(ON_SERVER) exec -T postgres sh -c "pg_dump -U shitshpejt -Fc shitshpejt"' > backup-$$(date +%F-%H%M).dump
+
 # ---------- cleanup ----------
 .PHONY: clean
 clean: ## Remove build output and local test artefacts

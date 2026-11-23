@@ -38,3 +38,8 @@ test-results/
 .storage-test/
 src/generated/
 .storage-e2e/
+
+# production env files and local deploy settings
+.deploy.env*
+.deploy.local
+backup-*.dump

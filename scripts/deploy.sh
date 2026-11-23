@@ -14,8 +14,12 @@ if [ -n "${GHCR_TOKEN:-}" ]; then echo "$GHCR_TOKEN" | docker login ghcr.io -u "
 
 compose() { TAG="$1" docker compose -f compose.prod.yaml "${@:2}"; }
 
-echo "→ pulling $NEW_TAG"
-compose "$NEW_TAG" pull web
+if [ "${SKIP_PULL:-0}" = 1 ]; then
+  echo "→ using local image (shipped with make ship)"
+else
+  echo "→ pulling $NEW_TAG"
+  compose "$NEW_TAG" pull web
+fi
 echo "→ migrating + starting $NEW_TAG"
 # Migrations must be backward compatible (expand → migrate → contract) so a rollback stays safe.
 compose "$NEW_TAG" up -d --remove-orphans --wait web worker caddy || true
