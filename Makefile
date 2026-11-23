@@ -76,7 +76,7 @@ build: ## Production build (web + worker)
 check: lint typecheck i18n test build ## Definition of done
 
 # ---------- docker / server ----------
-.PHONY: docker-build prod-up prod-down prod-logs deploy rollback
+.PHONY: docker-build prod-up prod-down prod-logs deploy-here rollback-here
 docker-build: ## Build the production image as $(IMAGE):$(TAG)
 > docker build -f docker/Dockerfile -t $(IMAGE):$(TAG) .
 
@@ -89,10 +89,10 @@ prod-down: ## On the server: stop the stack (volumes kept)
 prod-logs: ## On the server: follow web + worker logs
 > TAG=$(TAG) $(COMPOSE_PROD) logs -f web worker
 
-deploy: ## On the server: deploy TAG with health check + auto-rollback
+deploy-here: ## On the server: deploy TAG with health check + auto-rollback
 > bash scripts/deploy.sh $(TAG)
 
-rollback: ## On the server: redeploy the previous tag
+rollback-here: ## On the server: redeploy the previous tag
 > bash scripts/deploy.sh "$$(cat .previous_tag)"
 
 # ---------- deploy to your Hetzner server (run from your laptop) ----------
@@ -112,6 +112,10 @@ REPO       ?= lazari03/shite-sot
 DEPLOY_TAG := $(shell git describe --always --dirty 2>/dev/null || echo local)
 IMAGE_REF  := ghcr.io/$(REPO):$(DEPLOY_TAG)
 ON_SERVER  := cd $(APP_DIR) && TAG=$$(cat .current_tag) docker compose -f compose.prod.yaml
+
+.PHONY: deploy
+deploy: ## ★ Deploy the site (asks for server IP, domain, keys the first time)
+> bash scripts/deploy-all.sh
 
 .PHONY: need-host server-setup prod-env server-env ship server-status server-logs server-ssh server-rollback server-admin server-backup
 need-host:
