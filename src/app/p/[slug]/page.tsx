@@ -117,7 +117,7 @@ export default async function ListingPage({ params }: { params: Params }) {
           </div>
         )}
         <div className="grid items-start gap-0 lg:grid-cols-[1.15fr_.85fr] lg:gap-11">
-          <div className="lg:sticky lg:top-[calc(var(--hdr)+24px)]">
+          <div className="lg:sticky lg:top-5">
             <Gallery
               images={images}
               title={l.title}

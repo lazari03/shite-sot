@@ -27,26 +27,26 @@ export async function Shell({ children, variant = "page", title, tabbar = false,
   const isHome = variant === "home";
 
   return (
-    <div className={cn(tabbar && "max-md:pb-[calc(var(--tabbar)+var(--safe-b))]", actionbar && "max-md:pb-[calc(76px+var(--safe-b))]")}>
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-ink focus:px-3 focus:py-2 focus:text-white">
+    <div className={cn("app-shell", actionbar && "app-shell-actions")}>
+      <a href="#main" className="sr-only focus:not-sr-only focus:mx-4 focus:my-2 focus:justify-self-start focus:rounded focus:bg-ink focus:px-3 focus:py-2 focus:text-white">
         {t("nav.skip")}
       </a>
       <header
         className={cn(
-          "glass sticky top-0 z-30 border-b border-line pt-[env(safe-area-inset-top)] backdrop-blur-[14px] backdrop-saturate-[1.4]",
+          "glass border-b border-line pt-[env(safe-area-inset-top)] backdrop-blur-[14px] backdrop-saturate-[1.4]",
           isHome ? "bg-paper/90" : "bg-paper/90 max-md:bg-white/95",
         )}
       >
         <div className="wrap">
-          <div className="-mx-1.5 flex min-h-14 flex-wrap items-center gap-1 md:mx-0 md:h-[72px] md:flex-nowrap md:gap-3">
+          <div className="-mx-1.5 flex min-h-12 flex-wrap items-center gap-1 md:mx-0 md:h-16 md:flex-nowrap md:gap-3">
             <Drawer
               categories={categories.map((c) => ({ slug: c.slug, name: c.name }))}
               user={user ? { name: user.name, isAdmin: user.role === "ADMIN" } : null}
               className={cn(!isHome && "max-md:hidden")}
             />
             {!isHome && <BackButton label={t("nav.back")} className="md:hidden" />}
-            <Logo label={t("nav.homeLabel")} className={cn("h-14 md:h-auto", !isHome && "max-md:hidden")} />
-            {!isHome && title && <span className="flex h-14 min-w-0 flex-1 items-center truncate font-display text-lg font-bold tracking-tight md:hidden">{title}</span>}
+            <Logo label={t("nav.homeLabel")} className={cn("h-12 md:h-auto", !isHome && "max-md:hidden")} />
+            {!isHome && title && <span className="block min-w-0 flex-1 truncate leading-12 font-display text-lg font-bold tracking-tight md:hidden">{title}</span>}
             {headerExtra}
             <form
               action="/kerko"
@@ -69,20 +69,20 @@ export async function Shell({ children, variant = "page", title, tabbar = false,
                 className="h-11 w-full appearance-none rounded-full border border-line bg-white pr-4 pl-[46px] text-base outline-none transition-colors focus:border-ink md:h-[46px] md:text-[15px]"
               />
             </form>
-            <nav aria-label={t("nav.account")} className="ml-3 flex items-center gap-1.5 max-md:hidden">
+            <nav aria-label={t("nav.account")} className="ml-1 flex shrink-0 items-center gap-0.5 max-md:hidden md:[&>.btn]:min-w-11 md:[&>.btn]:px-2 lg:[&>.btn]:px-3">
               <Link className="btn btn-ghost" href="/ruajtura">
                 <Heart className="size-5" aria-hidden />
-                {t("nav.saved")}
+                <span className="max-lg:sr-only">{t("nav.saved")}</span>
               </Link>
               {user ? (
                 <Link className="btn btn-ghost" href="/paneli">
                   <LayoutDashboard className="size-5" aria-hidden />
-                  {t("nav.dashboard")}
+                  <span className="max-lg:sr-only">{t("nav.dashboard")}</span>
                 </Link>
               ) : (
                 <Link className="btn btn-ghost" href="/hyr">
                   <LogIn className="size-5" aria-hidden />
-                  {t("nav.login")}
+                  <span className="max-lg:sr-only">{t("nav.login")}</span>
                 </Link>
               )}
               <Link className="btn btn-lime" href="/shit">
@@ -93,15 +93,17 @@ export async function Shell({ children, variant = "page", title, tabbar = false,
           </div>
         </div>
       </header>
-      <main id="main">{children}</main>
-      {isHome && (
-        <footer className="mt-10 border-t border-line py-6 text-[13px] text-muted md:pb-10">
-          <div className="wrap flex flex-wrap justify-between gap-4">
-            <span>© {new Date().getFullYear()} ShitShpejt</span>
-            <span>{t("footer.tagline")}</span>
-          </div>
-        </footer>
-      )}
+      <main id="main" className="app-content" tabIndex={-1}>
+        {children}
+        {isHome && (
+          <footer className="mt-6 border-t border-line py-4 text-[13px] text-muted md:py-6">
+            <div className="wrap flex flex-wrap justify-between gap-4">
+              <span>© {new Date().getFullYear()} ShitShpejt</span>
+              <span>{t("footer.tagline")}</span>
+            </div>
+          </footer>
+        )}
+      </main>
       {tabbar && <TabBar loggedIn={Boolean(user)} />}
     </div>
   );

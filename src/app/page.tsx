@@ -35,12 +35,12 @@ export default async function HomePage() {
   return (
     <Shell variant="home" tabbar>
       <div className="wrap">
-        <section aria-labelledby="hero-title" className="mt-3 grid items-center gap-4 rounded-2xl bg-ink px-5 pt-6 pb-5 text-white md:mt-6 md:rounded-[var(--radius-lg)] md:p-11 lg:grid-cols-[1.05fr_.95fr] lg:gap-12 xl:p-14">
+        <section aria-labelledby="hero-title" className="mt-3 grid items-center gap-3 rounded-[var(--radius-lg)] bg-ink p-4 text-white md:mt-5 md:p-7 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)] lg:gap-8 xl:p-9">
           <div>
-            <h1 id="hero-title" className="font-display text-[34px] leading-[.92] font-extrabold tracking-[-0.05em] md:mb-[22px] md:text-[clamp(48px,6.4vw,92px)]">
+            <h1 id="hero-title" className="font-display text-[34px] leading-[.92] font-extrabold tracking-[-0.05em] md:mb-3 md:text-[clamp(44px,5.25vw,74px)]">
               {t("home.heroTitle")}
             </h1>
-            <p className="mb-[30px] max-w-[40ch] text-[17px] text-[#bfcbc0] max-md:hidden">{t("home.heroBody")}</p>
+            <p className="mb-4 max-w-[40ch] text-[17px] text-[#bfcbc0] max-md:hidden">{t("home.heroBody")}</p>
             <div className="flex flex-wrap gap-2.5 max-md:hidden">
               <a className="btn btn-lime btn-lg" href="#ending">
                 {t("home.ctaBrowse")}
@@ -64,10 +64,10 @@ export default async function HomePage() {
               }}
             />
           ) : (
-            <div className="rounded-[var(--radius-md)] bg-ink-2 p-6 md:p-[26px]">
+            <div className="rounded-[var(--radius-md)] bg-ink-2 p-4 md:p-5">
               <p className="font-display text-2xl font-bold tracking-tight text-lime">{t("home.noActiveTitle")}</p>
               <p className="mt-2 text-[#bfcbc0]">{t("home.noActiveBody")}</p>
-              <Link href="/shit" className="btn btn-lime mt-5">
+              <Link href="/shit" className="btn btn-lime mt-3">
                 <Plus className="size-5" aria-hidden />
                 {t("home.beFirst")}
               </Link>
@@ -75,8 +75,8 @@ export default async function HomePage() {
           )}
         </section>
 
-        <nav aria-label={t("nav.categories")} className="scroll-x sticky top-[var(--hdr)] z-20 -mx-4 mt-3 bg-paper px-4 py-2.5 md:-mx-8 md:px-8 md:py-3">
-          <Link className="chip" href="/kerko" aria-current="page">
+        <nav aria-label={t("nav.categories")} className="scroll-x -mx-4 mt-2 bg-paper px-4 py-2 md:-mx-8 md:px-8">
+          <Link className="chip" href="/kerko">
             {t("home.all")}
             <small>{totalActive}</small>
           </Link>
@@ -109,7 +109,7 @@ export default async function HomePage() {
           </section>
         )}
 
-        <section aria-labelledby="cities" className="mt-10">
+        <section aria-labelledby="cities" className="mt-7">
           <h2 id="cities" className="h-display text-[22px] md:text-[28px]">
             {t("home.byCity")}
           </h2>
@@ -122,7 +122,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section id="si-funksionon" aria-labelledby="how-title" className="mt-11 mb-6 grid scroll-mt-[calc(var(--hdr)+16px)] items-center gap-7 rounded-[var(--radius-lg)] bg-sage px-5 py-[26px] md:my-[72px] md:p-12 lg:grid-cols-[.9fr_1.4fr] lg:gap-12">
+        <section id="si-funksionon" aria-labelledby="how-title" className="my-7 grid scroll-mt-4 items-center gap-5 rounded-[var(--radius-lg)] bg-sage p-4 md:my-10 md:p-7 lg:grid-cols-[.9fr_1.4fr] lg:gap-7">
           <div>
             <h2 id="how-title" className="mb-3 font-display text-[28px] leading-[1.02] font-bold tracking-[-0.035em] md:text-[clamp(28px,3.2vw,40px)]">
               {t("home.howTitle")}
@@ -133,10 +133,10 @@ export default async function HomePage() {
               {t("nav.sell")}
             </Link>
           </div>
-          <ol className="grid gap-3.5 md:grid-cols-3">
+          <ol className="grid gap-2.5 md:grid-cols-3">
             {(["one", "two", "three"] as const).map((k, i) => (
-              <li key={k} className="rounded-[var(--radius-md)] bg-white/65 p-5">
-                <span className="mb-3.5 grid size-8 place-items-center rounded-full bg-ink font-display text-[15px] font-bold text-lime">{i + 1}</span>
+              <li key={k} className="rounded-[var(--radius-md)] bg-white/65 p-3.5">
+                <span className="mb-2 grid size-8 place-items-center rounded-full bg-ink font-display text-[15px] font-bold text-lime">{i + 1}</span>
                 <b className="mb-1 block text-base">{t(`home.step.${k}.title`)}</b>
                 <span className="text-sm text-[#4d5a48]">{t(`home.step.${k}.body`)}</span>
               </li>

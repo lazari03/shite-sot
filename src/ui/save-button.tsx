@@ -43,7 +43,7 @@ export function SaveButton({ listingId, initialSaved, loggedIn, title, variant =
       className={cn(
         "transition-[color,transform] active:scale-90",
         variant === "overlay"
-          ? "absolute top-1.5 right-1.5 z-[2] grid size-11 place-items-center rounded-full bg-white/95 hover:text-clay md:top-2 md:right-2"
+          ? "absolute top-1.5 right-1.5 grid size-11 place-items-center rounded-full bg-white/95 hover:text-clay md:top-2 md:right-2"
           : "btn btn-line h-[50px] w-[50px] flex-none px-0 md:h-[54px] md:w-[54px]",
         optimistic ? "text-clay" : "text-ink",
       )}

@@ -3,7 +3,7 @@ import { ArrowRight } from "lucide-react";
 
 export function SectionHead({ id, title, subtitle, href, linkLabel, children }: { id?: string; title: string; subtitle?: string; href?: string; linkLabel?: string; children?: React.ReactNode }) {
   return (
-    <div id={id} className="mt-7 mb-1.5 flex scroll-mt-[calc(var(--hdr)+16px)] flex-wrap items-end justify-between gap-x-4 gap-y-1.5 md:mt-11">
+    <div id={id} className="mt-5 mb-1.5 flex scroll-mt-4 flex-wrap items-end justify-between gap-x-4 gap-y-1.5 md:mt-8">
       <div>
         <h2 id={id ? `${id}-title` : undefined} className="h-display text-[26px] md:mb-2 md:text-[clamp(28px,3.4vw,42px)]">{title}</h2>
         {subtitle && <p className="text-[13px] text-muted md:text-[15px]">{subtitle}</p>}
