@@ -51,6 +51,12 @@ if [ "$IS_LOCAL" = 1 ]; then
   install -m 600 .env.db.production "$APP_DIR/.env.db"
   install -m 600 .deploy.env.production "$APP_DIR/.deploy.env"
   cp compose.prod.yaml scripts/deploy.sh "$APP_DIR/"
+  # Another site's proxy already on port 80? Sit behind it instead of starting our own Caddy.
+  PROXY="$(docker ps --filter publish=80 --format '{{.Names}}' | grep -v '^shitshpejt-' | head -1 || true)"
+  if [ -n "$PROXY" ]; then
+    DOMAIN="$(grep -E '^DOMAIN=' .deploy.env.production | cut -d= -f2)"
+    bash scripts/use-existing-proxy.sh "$PROXY" "$DOMAIN" "$APP_DIR"
+  fi
   cp docker/Caddyfile "$APP_DIR/docker/Caddyfile"
   REPO="${REPO:-lazari03/shite-sot}"
   TAG="$(git describe --always --dirty 2>/dev/null || echo local)"

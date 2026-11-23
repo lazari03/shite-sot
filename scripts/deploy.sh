@@ -12,7 +12,11 @@ set -a; [ -f .deploy.env ] && . ./.deploy.env; set +a   # DOMAIN, ACME_EMAIL
 
 if [ -n "${GHCR_TOKEN:-}" ]; then echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null; fi
 
-compose() { TAG="$1" docker compose -f compose.prod.yaml "${@:2}"; }
+# If another reverse proxy already owns ports 80/443 (compose.proxy.yaml exists), we join its
+# network and don't start our own Caddy.
+FILES=(-f compose.prod.yaml); SERVICES=(web worker caddy)
+if [ -f compose.proxy.yaml ]; then FILES+=(-f compose.proxy.yaml); SERVICES=(web worker); fi
+compose() { TAG="$1" docker compose "${FILES[@]}" "${@:2}"; }
 
 if [ "${SKIP_PULL:-0}" = 1 ]; then
   echo "→ using local image (shipped with make ship)"
@@ -22,11 +26,11 @@ else
 fi
 echo "→ migrating + starting $NEW_TAG"
 # Migrations must be backward compatible (expand → migrate → contract) so a rollback stays safe.
-compose "$NEW_TAG" up -d --remove-orphans --wait web worker caddy || true
+compose "$NEW_TAG" up -d --wait "${SERVICES[@]}" || true
 
 healthy=0
 for _ in $(seq 1 30); do
-  if docker compose -f compose.prod.yaml exec -T web curl -fsS http://127.0.0.1:3000/api/health >/dev/null 2>&1; then healthy=1; break; fi
+  if compose "$NEW_TAG" exec -T web curl -fsS http://127.0.0.1:3000/api/health >/dev/null 2>&1; then healthy=1; break; fi
   sleep 3
 done
 
@@ -34,7 +38,7 @@ if [ "$healthy" != 1 ]; then
   echo "✗ $NEW_TAG unhealthy"
   if [ -n "$PREV_TAG" ]; then
     echo "→ rolling back to $PREV_TAG"
-    compose "$PREV_TAG" up -d --remove-orphans web worker caddy
+    compose "$PREV_TAG" up -d "${SERVICES[@]}"
   fi
   exit 1
 fi
