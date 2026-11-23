@@ -13,12 +13,12 @@ export interface EmailProvider {
 /** Dev/test: logs the email and appends it to .storage/outbox.jsonl (E2E reads links from there). */
 class ConsoleEmailProvider implements EmailProvider {
   async send(msg: EmailMessage) {
-    if (env().APP_ENV === "production") throw new Error("Console email provider is not allowed in production");
+    // In production without Resend, emails (e.g. password-reset links) only appear in the server logs.
     const dir = path.resolve(env().LOCAL_STORAGE_DIR);
     await mkdir(dir, { recursive: true });
     await appendFile(path.join(dir, "outbox.jsonl"), JSON.stringify({ ...msg, at: new Date().toISOString() }) + "\n");
     log.info("email (console)", { subject: msg.subject });
-    if (env().APP_ENV === "development") console.log(`\n--- EMAIL to ${msg.to} ---\n${msg.subject}\n${msg.text}\n---\n`);
+    if (env().APP_ENV !== "test") console.log(`\n--- EMAIL to ${msg.to} ---\n${msg.subject}\n${msg.text}\n---\n`);
   }
 }
 

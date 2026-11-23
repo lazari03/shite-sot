@@ -97,7 +97,7 @@ rollback-here: ## On the server: redeploy the previous tag
 
 # ---------- deploy to your Hetzner server (run from your laptop) ----------
 # First time:   make server-setup HOST=1.2.3.4
-#               make prod-env DOMAIN=shitshpejt.al EMAIL=you@example.com   (then add RESEND_API_KEY)
+#               make prod-env DOMAIN=shitshpejt.al EMAIL=you@example.com
 #               make server-env HOST=1.2.3.4
 #               make ship HOST=1.2.3.4
 # Every deploy: make ship HOST=1.2.3.4
@@ -129,7 +129,6 @@ prod-env: ## 2. Create production env files with random secrets. DOMAIN=... EMAI
 > bash scripts/make-prod-env.sh $(DOMAIN) $(EMAIL)
 
 server-env: need-host ## 3. Upload the env files to the server
-> @grep -qE '^RESEND_API_KEY=.+' .env.production || (echo "Add your RESEND_API_KEY to .env.production first" && exit 1)
 > scp .env.production $(REMOTE):$(APP_DIR)/.env
 > scp .env.db.production $(REMOTE):$(APP_DIR)/.env.db
 > scp .deploy.env.production $(REMOTE):$(APP_DIR)/.deploy.env

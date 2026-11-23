@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
 # `make deploy` — one command from your laptop to a live site.
-# First run asks for server IP, domain, email and Resend key, prepares the server and uploads config.
+# First run asks for server IP, domain and email, prepares the server and uploads config.
 # Later runs just build and ship. Answers are remembered in .deploy.local / .env.production (git-ignored).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 ask() { local prompt="$1" default="${2:-}" reply; read -r -p "$prompt${default:+ [$default]}: " reply; echo "${reply:-$default}"; }
+
+# No Resend key? Run without emails (signup logs users in directly).
+no_email_fallback() {
+  if grep -qE '^EMAIL_PROVIDER=resend' .env.production && ! grep -qE '^RESEND_API_KEY=.+' .env.production; then
+    sed -i.bak 's|^EMAIL_PROVIDER=resend|EMAIL_PROVIDER=console|' .env.production && rm -f .env.production.bak
+  fi
+  if grep -qE '^EMAIL_PROVIDER=console' .env.production && ! grep -q '^REQUIRE_EMAIL_VERIFICATION=' .env.production; then
+    echo "REQUIRE_EMAIL_VERIFICATION=false" >> .env.production
+  fi
+}
 
 # --- server IP ---
 HOST="${HOST:-}"
@@ -36,11 +46,7 @@ if [ "$IS_LOCAL" = 1 ]; then
     EMAIL="$(ask "Your email (for the HTTPS certificate)")"
     bash scripts/make-prod-env.sh "$DOMAIN" "$EMAIL"
   fi
-  if ! grep -qE '^RESEND_API_KEY=.+' .env.production; then
-    read -r -s -p "Resend API key (resend.com, needed for signup emails): " KEY; echo
-    [ -n "$KEY" ] || { echo "✗ The site can't run in production without it."; exit 1; }
-    sed -i.bak "s|^RESEND_API_KEY=.*|RESEND_API_KEY=$KEY|" .env.production && rm -f .env.production.bak
-  fi
+  no_email_fallback
   install -m 600 .env.production "$APP_DIR/.env"
   install -m 600 .env.db.production "$APP_DIR/.env.db"
   install -m 600 .deploy.env.production "$APP_DIR/.deploy.env"
@@ -78,11 +84,7 @@ if [ ! -f .env.production ]; then
   EMAIL="$(ask "Your email (for the HTTPS certificate)")"
   bash scripts/make-prod-env.sh "$DOMAIN" "$EMAIL"
 fi
-if ! grep -qE '^RESEND_API_KEY=.+' .env.production; then
-  read -r -s -p "Resend API key (resend.com, needed for signup emails): " KEY; echo
-  [ -n "$KEY" ] || { echo "✗ The site can't run in production without it."; exit 1; }
-  sed -i.bak "s|^RESEND_API_KEY=.*|RESEND_API_KEY=$KEY|" .env.production && rm -f .env.production.bak
-fi
+no_email_fallback
 
 echo "→ Uploading config"
 scp -q .env.production "deploy@$HOST:/opt/shitshpejt/.env"

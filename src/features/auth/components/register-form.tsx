@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { authClient, authErrorKey, safeNext } from "../client";
 
@@ -9,6 +10,7 @@ export function RegisterForm({ next, google }: { next?: string; google: boolean 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
+  const router = useRouter();
   const target = safeNext(next);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -17,7 +19,7 @@ export function RegisterForm({ next, google }: { next?: string; google: boolean 
     if (fd.get("terms") !== "on") return setError("TERMS");
     setPending(true);
     setError(null);
-    const { error } = await authClient.signUp.email({
+    const { data, error } = await authClient.signUp.email({
       name: String(fd.get("name")).trim(),
       email: String(fd.get("email")).trim(),
       password: String(fd.get("password")),
@@ -25,6 +27,12 @@ export function RegisterForm({ next, google }: { next?: string; google: boolean 
     });
     setPending(false);
     if (error) return setError(authErrorKey(error.code, error.status));
+    // Email verification off: Better Auth signs the user in right away.
+    if (data && "token" in data && data.token) {
+      router.replace(target);
+      router.refresh();
+      return;
+    }
     setDone(true);
   }
 

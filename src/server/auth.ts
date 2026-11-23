@@ -30,7 +30,7 @@ function build() {
       minPasswordLength: 8,
       maxPasswordLength: 128,
       // Required verification also enables Better Auth's sign-up enumeration protection.
-      requireEmailVerification: true,
+      requireEmailVerification: e.REQUIRE_EMAIL_VERIFICATION,
       revokeSessionsOnPasswordReset: true,
       resetPasswordTokenExpiresIn: 60 * 60,
       sendResetPassword: async ({ user, url }) => {
@@ -47,7 +47,7 @@ function build() {
       },
     },
     emailVerification: {
-      sendOnSignUp: true,
+      sendOnSignUp: e.REQUIRE_EMAIL_VERIFICATION,
       autoSignInAfterVerification: true,
       expiresIn: 60 * 60 * 24,
       sendVerificationEmail: async ({ user, url }) => {

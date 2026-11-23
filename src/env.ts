@@ -35,6 +35,11 @@ const schema = z
     MODERATION_MODE: z.enum(["all", "first_n", "none"]).default("first_n"),
     MODERATION_TRUST_AFTER: z.coerce.number().int().min(0).default(3),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+    // false = sign up and log in immediately (no email needed). Turn on once Resend is configured.
+    REQUIRE_EMAIL_VERIFICATION: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((v) => v === "true"),
   })
   .superRefine((v, ctx) => {
     if (v.STORAGE_DRIVER === "s3") {

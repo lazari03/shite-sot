@@ -28,9 +28,12 @@ BETTER_AUTH_SECRET=$(rand 64)
 DATABASE_URL=postgresql://shitshpejt:$DB_PW@postgres:5432/shitshpejt
 ANALYTICS_SALT=$(rand 32)
 
-# REQUIRED: emails (account verification, password reset). Get a key at resend.com
-# and verify your domain there. The app refuses to start in production without it.
-EMAIL_PROVIDER=resend
+# Emails: off for now. Users sign up and are logged in immediately.
+# Password-reset links only show in the server logs (make server-logs).
+# Later: get a key at resend.com, then set EMAIL_PROVIDER=resend, RESEND_API_KEY=... and
+# REQUIRE_EMAIL_VERIFICATION=true, and run make deploy again.
+EMAIL_PROVIDER=console
+REQUIRE_EMAIL_VERIFICATION=false
 EMAIL_FROM="ShitShpejt <njoftime@$DOMAIN>"
 RESEND_API_KEY=
 
@@ -54,4 +57,3 @@ LOG_LEVEL=info
 ENV
 chmod 600 .env.production .env.db.production .deploy.env.production
 echo "✓ created .env.production, .env.db.production, .deploy.env.production"
-echo "  Now open .env.production and paste your RESEND_API_KEY."
