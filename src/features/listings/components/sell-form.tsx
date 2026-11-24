@@ -219,7 +219,7 @@ export function SellForm({ initial, categories, cities, needsContact }: Props) {
         <p className="hint mt-3 max-md:mb-4">{t("rules")}</p>
       </form>
 
-      <aside className="sticky top-[calc(var(--hdr)+24px)] max-lg:hidden" aria-hidden>
+      <aside className="sticky top-5 max-lg:hidden" aria-hidden>
         <p className="mb-3 text-sm font-semibold text-muted">{t("previewLabel")}</p>
         <div className="card pointer-events-none max-w-[340px]">
           <div className="relative aspect-[4/3] overflow-hidden bg-placeholder">

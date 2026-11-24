@@ -19,14 +19,14 @@ export function TabBar({ loggedIn }: { loggedIn: boolean }) {
   return (
     <nav
       aria-label={t("main")}
-      className="glass fixed inset-x-0 bottom-0 z-40 grid h-[calc(var(--tabbar)+var(--safe-b))] grid-cols-5 border-t border-line bg-white/95 px-1.5 pb-[var(--safe-b)] backdrop-blur-[14px] backdrop-saturate-[1.4] md:hidden"
+      className="glass grid h-[calc(var(--tabbar)+var(--safe-b))] grid-cols-5 border-t border-line bg-white/95 px-1.5 pb-[var(--safe-b)] backdrop-blur-[14px] backdrop-saturate-[1.4] md:hidden"
     >
       {tabs.map(({ href, label, icon: Icon, active, sell }) => (
         <Link
           key={href + label}
           href={href}
           aria-current={active ? "page" : undefined}
-          className={cn("flex flex-col items-center justify-center gap-[3px] text-[11px] font-semibold", active || sell ? "text-ink" : "text-muted")}
+          className={cn("flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[11px] leading-tight font-semibold", active || sell ? "text-ink" : "text-muted")}
         >
           <span className={cn("grid place-items-center transition-transform active:scale-90", sell && "h-[30px] w-12 rounded-[11px] bg-lime")}>
             <Icon className="size-[23px]" fill={active && !sell ? "currentColor" : "none"} strokeWidth={sell ? 2.4 : 2} aria-hidden />

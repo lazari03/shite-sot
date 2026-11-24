@@ -48,9 +48,9 @@
 
 @layer base {
   :root {
-    --hdr: 72px;
     --safe-b: env(safe-area-inset-bottom, 0px);
-    --tabbar: 64px;
+    --tabbar: 60px;
+    --actionbar: 61px;
   }
   * {
     -webkit-tap-highlight-color: transparent;
@@ -81,14 +81,6 @@
   .num {
     font-variant-numeric: tabular-nums;
   }
-  @media (max-width: 700px) {
-    body.has-tabbar {
-      padding-bottom: calc(var(--tabbar) + var(--safe-b));
-    }
-    body.has-actionbar {
-      padding-bottom: calc(76px + var(--safe-b));
-    }
-  }
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -110,6 +102,50 @@
     .wrap {
       padding-inline: 32px;
     }
+  }
+
+  .app-shell {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  .app-shell:has(> a:focus) {
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    height: 100vh;
+    height: 100dvh;
+  }
+  .app-content {
+    grid-row: 3;
+    min-width: 0;
+    overflow: auto;
+    overscroll-behavior-y: contain;
+  }
+  @media (width < 43.8125rem) {
+    .app-shell-actions {
+      padding-bottom: calc(var(--actionbar) + var(--safe-b));
+    }
+  }
+  .menu-dialog {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    background: transparent;
+    color: inherit;
+  }
+  .menu-dialog::backdrop {
+    background: rgb(12 22 16 / 50%);
+  }
+  .menu-panel {
+    display: flex;
+    flex-direction: column;
+    width: min(320px, 86vw);
+    height: 100%;
+    padding: calc(8px + env(safe-area-inset-top)) 12px calc(16px + var(--safe-b));
+    overflow: auto;
+    overscroll-behavior: contain;
+    background: var(--color-card);
   }
 
   /* ---------- buttons ---------- */
@@ -273,17 +309,10 @@
     outline-offset: 2px;
   }
   .card-link {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
     outline: none;
-  }
-  .card-link::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 1;
   }
   .card.is-expired {
     opacity: 0.6;
@@ -295,7 +324,6 @@
     position: absolute;
     left: 10px;
     top: 10px;
-    z-index: 2;
     font: 700 12px/1 var(--font-sans);
     padding: 6px 8px;
     border-radius: 5px;
@@ -422,18 +450,26 @@
     gap: 10px;
     align-items: center;
   }
-  @media (max-width: 700px) {
+  @media (width < 43.8125rem) {
     .actionbar {
       position: fixed;
       left: 0;
       right: 0;
       bottom: 0;
-      z-index: 40;
-      background: rgba(255, 255, 255, 0.96);
+        background: rgba(255, 255, 255, 0.96);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border-top: 1px solid var(--color-line);
-      padding: 10px 16px calc(10px + var(--safe-b));
+      min-height: calc(var(--actionbar) + var(--safe-b));
+      padding: 8px 16px calc(8px + var(--safe-b));
+    }
+  }
+
+  @media (width < 43.8125rem) {
+    .actionbar > .btn {
+      height: 44px;
+      min-height: 44px;
+      padding-inline: 10px;
     }
   }
 
@@ -452,7 +488,7 @@
   }
   .empty {
     text-align: center;
-    padding: 56px 24px;
+    padding: clamp(28px, 5vw, 44px) 16px;
     border: 1.5px dashed var(--color-line);
     border-radius: var(--radius-md);
   }
@@ -510,7 +546,8 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .glass {
+  .glass,
+  .actionbar {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     background: #fff !important;

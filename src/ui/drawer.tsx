@@ -13,8 +13,7 @@ type Props = { categories: Array<{ slug: string; name: string }>; user: { name: 
 export function Drawer({ categories, user, className }: Props) {
   const t = useTranslations("nav");
   const [open, setOpen] = useState(false);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const path = usePathname();
   const [lastPath, setLastPath] = useState(path);
 
@@ -25,39 +24,30 @@ export function Drawer({ categories, user, className }: Props) {
   }
 
   useEffect(() => {
-    if (!open) return;
-    document.documentElement.style.overflow = "hidden";
-    const id = setTimeout(() => closeRef.current?.focus(), 60);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.documentElement.style.overflow = "";
-      clearTimeout(id);
-      window.removeEventListener("keydown", onKey);
-    };
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
   }, [open]);
 
-  function close() {
-    setOpen(false);
-    triggerRef.current?.focus();
-  }
-
-  const item = "flex min-h-[50px] w-full items-center gap-3.5 rounded-[10px] px-4 text-base font-semibold hover:bg-paper active:bg-paper-2";
+  const item = "flex min-h-11 w-full items-center gap-3.5 rounded-[10px] px-4 text-base font-semibold hover:bg-paper active:bg-paper-2";
 
   return (
     <>
-      <button ref={triggerRef} type="button" className={cn("iconbtn h-14 md:h-11", className)} aria-label={t("openMenu")} aria-expanded={open} aria-controls="drawer" onClick={() => setOpen(true)}>
+      <button type="button" className={cn("iconbtn", className)} aria-label={t("openMenu")} aria-expanded={open} aria-controls="drawer" aria-haspopup="dialog" onClick={() => setOpen(true)}>
         <Menu className="size-5" aria-hidden />
       </button>
-      <div id="drawer" className={cn("fixed inset-0 z-[60]", open ? "pointer-events-auto" : "pointer-events-none")} inert={!open}>
-        <div className={cn("absolute inset-0 bg-[rgba(12,22,16,.5)] transition-opacity duration-200", open ? "opacity-100" : "opacity-0")} onClick={close} />
-        <nav
-          aria-label={t("menu")}
-          className={cn(
-            "absolute inset-y-0 left-0 flex w-[min(340px,86vw)] flex-col overflow-y-auto overscroll-contain bg-white px-3 pt-[calc(12px+env(safe-area-inset-top))] pb-[calc(20px+var(--safe-b))] transition-transform duration-300 ease-[cubic-bezier(.2,.8,.2,1)]",
-            open ? "translate-x-0 shadow-[20px_0_60px_-20px_rgba(0,0,0,.3)]" : "-translate-x-[102%] invisible",
-          )}
-        >
+      <dialog
+        ref={dialogRef}
+        id="drawer"
+        aria-label={t("menu")}
+        className="menu-dialog"
+        onClose={() => setOpen(false)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) setOpen(false);
+        }}
+      >
+        <nav className="menu-panel">
           <div className="flex items-center justify-between pt-1 pr-1 pb-4 pl-2.5">
             <span className="flex items-center gap-2 font-display text-[22px] font-extrabold tracking-[-0.045em]">
               <LogoMark />
@@ -65,11 +55,11 @@ export function Drawer({ categories, user, className }: Props) {
                 shit<b className="text-lime-deep">shpejt</b>
               </span>
             </span>
-            <button ref={closeRef} type="button" className="iconbtn" aria-label={t("closeMenu")} onClick={close}>
+            <button type="button" className="iconbtn" aria-label={t("closeMenu")} onClick={() => setOpen(false)}>
               <X className="size-5" aria-hidden />
             </button>
           </div>
-          <Link className="btn btn-lime mx-1.5 mb-2 h-[52px] text-[15px]" href="/shit">
+          <Link className="btn btn-lime mx-1.5 mb-2" href="/shit">
             <Plus className="size-5" aria-hidden />
             {t("sell")}
           </Link>
@@ -109,7 +99,7 @@ export function Drawer({ categories, user, className }: Props) {
           )}
           <p className="mx-4 mt-auto pt-6 text-xs leading-normal text-muted">{t("fine")}</p>
         </nav>
-      </div>
+      </dialog>
     </>
   );
 }
