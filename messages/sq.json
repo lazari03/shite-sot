@@ -26,6 +26,8 @@
     "fine": "Çdo okazion ka çmim fiks dhe zgjat 48 orë. ShitShpejt nuk merr pjesë në pagesë: takohu me shitësin dhe kontrollo produktin."
   },
   "search": {
+    "moreListings": "Më shumë njoftime",
+    "moreFailed": "Ngarkimi automatik dështoi. Hap faqen tjetër për të vazhduar.",
     "label": "Kërko okazione",
     "placeholder": "Kërko iPhone, PS5, laptop…",
     "title": "Kërko",

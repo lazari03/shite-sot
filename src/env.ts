@@ -30,6 +30,9 @@ const schema = z
     S3_ACCESS_KEY_ID: optional,
     S3_SECRET_ACCESS_KEY: optional,
     S3_PUBLIC_URL: optional,
+    OPENAI_API_KEY: optional,
+    OPENAI_MODERATION_MODEL: z.string().default("gpt-5.4-mini"),
+    AI_MODERATION_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
     ANALYTICS_SALT: z.string().default("dev-analytics-salt"),
     // "first_n": sellers need review until MODERATION_TRUST_AFTER listings were approved.
     MODERATION_MODE: z.enum(["all", "first_n", "none"]).default("first_n"),

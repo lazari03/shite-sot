@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ListingCard, CardGrid } from "@/ui/listing-card";
 import { EmptyState } from "@/ui/section";
 import { Pagination } from "@/ui/pagination";
+import { MoreResults } from "./more-results";
 import { favoriteIdsFor, type DiscoveryResult } from "../queries";
 import type { DiscoveryFiltersValue } from "../schema";
 
@@ -43,8 +44,17 @@ export async function Results({ result, filters, basePath, userId, serverNow }: 
             }
           />
         )}
+        {result.page < result.pageCount && result.page < 500 && (
+          <MoreResults
+            key={`${basePath}${filtersToQuery(filters)}`}
+            filters={filters}
+            firstIds={result.items.map((item) => item.id)}
+            lastPage={result.pageCount}
+            nextHref={`${basePath}${filtersToQuery(filters, { page: result.page + 1 })}`}
+          />
+        )}
       </CardGrid>
-      <Pagination page={result.page} pageCount={result.pageCount} makeHref={(p) => `${basePath}${filtersToQuery(filters, { page: p })}`} />
+      {result.page > 1 && <Pagination page={result.page} pageCount={result.pageCount} makeHref={(p) => `${basePath}${filtersToQuery(filters, { page: p })}`} />}
     </>
   );
 }

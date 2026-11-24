@@ -74,3 +74,9 @@ Before a production cutover, inventory and back up any existing Hetzner data. If
 - Uptime: external monitor on `https://<domain>/api/health`.
 - Errors: hook Sentry/GlitchTip into `src/server/logger.ts` when the DSN exists (see TODO).
 - Local storage driver keeps images on the `media` volume — fine for staging; use S3 in production.
+
+## AI listing moderation
+
+Run the database migrations before enabling the worker. Set `AI_MODERATION_ENABLED=true` and `OPENAI_API_KEY` in the server environment. The default `OPENAI_MODERATION_MODEL` is `gpt-5.4-mini`. The worker reads `listing_review_v1` from the Supabase `ModerationPrompt` table and checks up to one new submission per minute. Update that row to change the moderation criteria.
+
+Only first-time submissions from verified sellers are eligible for automatic approval. Enable email verification and configure working email delivery so eligible sellers can verify their accounts. The worker sends listing text and resized photos to OpenAI, without seller account fields, and records auto-approvals in the audit log. Uncertain results, provider failures, and changes to already-published listings remain available in the admin review queue.

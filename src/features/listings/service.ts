@@ -55,6 +55,7 @@ export async function createDraft(actor: Actor, input: ListingInputValue): Promi
         cityId: input.cityId,
         condition: input.condition,
         locationNote: input.locationNote,
+        aiModerationCheckedAt: null,
         status: "DRAFT",
       },
     });

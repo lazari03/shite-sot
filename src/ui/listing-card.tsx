@@ -1,14 +1,14 @@
 import { MapPin, Camera } from "lucide-react";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
 import type { ListingCard as Card } from "@/features/listings/queries";
 import { cn } from "@/lib/cn";
 import { Countdown } from "./countdown";
 import { Price } from "./price";
 import { SaveButton } from "./save-button";
 
-export async function ListingCard({ item, serverNow, saved, loggedIn, priority }: { item: Card; serverNow: number; saved?: boolean; loggedIn: boolean; priority?: boolean }) {
-  const t = await getTranslations();
+export function ListingCard({ item, serverNow, saved, loggedIn, priority }: { item: Card; serverNow: number; saved?: boolean; loggedIn: boolean; priority?: boolean }) {
+  const t = useTranslations();
   const expired = item.status !== "ACTIVE";
   return (
     <article className={cn("card", expired && "is-expired")}>

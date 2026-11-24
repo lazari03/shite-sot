@@ -26,6 +26,8 @@
     "fine": "Every deal has a fixed price and lasts 48 hours. ShitShpejt is not part of the payment: meet the seller and check the item."
   },
   "search": {
+    "moreListings": "More listings",
+    "moreFailed": "Automatic loading failed. Open the next page to continue.",
     "label": "Search deals",
     "placeholder": "Search iPhone, PS5, laptop…",
     "title": "Search",

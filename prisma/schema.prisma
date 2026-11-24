@@ -213,7 +213,13 @@ model City {
 
 // ---------- Listings ----------
 
+model ModerationPrompt {
+  key          String @id
+  instructions String
+}
+
 model Listing {
+  aiModerationCheckedAt DateTime?
   id                   String           @id @default(cuid())
   sellerId             String
   seller               User             @relation(fields: [sellerId], references: [id], onDelete: Cascade)

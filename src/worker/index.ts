@@ -8,11 +8,13 @@ import type { Prisma } from "@/generated/prisma/client";
 import { env } from "@/env";
 import { db } from "@/server/db";
 import { log } from "@/server/logger";
+import { moderateNextListing } from "@/features/listings/ai-moderation";
 import { expireDueListings } from "@/features/listings/service";
 import { endExpiredPromotions } from "@/features/promotions/service";
 import { cleanupOrphanImages } from "@/features/media/service";
 
 const JOBS = {
+  "listings.ai-moderation": { cron: "* * * * *", run: async () => ({ approved: await moderateNextListing() }) },
   "listings.expire": { cron: "* * * * *", run: async () => ({ expired: await expireDueListings() }) },
   "promotions.expire": { cron: "*/5 * * * *", run: async () => ({ ended: await endExpiredPromotions() }) },
   "images.cleanup": { cron: "17 * * * *", run: async () => ({ deleted: await cleanupOrphanImages(24) }) },

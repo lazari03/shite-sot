@@ -1,11 +1,12 @@
 import "server-only";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { DeleteObjectsCommand, PutObjectCommand, S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { DeleteObjectsCommand, GetObjectCommand, PutObjectCommand, S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { env } from "@/env";
 
 export interface StorageProvider {
   put(key: string, body: Buffer, contentType: string): Promise<void>;
+  read(key: string): Promise<Buffer | null>;
   /** Delete every object under a prefix. */
   deletePrefix(prefix: string): Promise<void>;
   publicUrl(key: string): string;
@@ -68,6 +69,11 @@ class S3Storage implements StorageProvider {
     const list = await this.client.send(new ListObjectsV2Command({ Bucket: env().S3_BUCKET, Prefix: prefix.endsWith("/") ? prefix : prefix + "/" }));
     const objects = (list.Contents ?? []).flatMap((o) => (o.Key ? [{ Key: o.Key }] : []));
     if (objects.length) await this.client.send(new DeleteObjectsCommand({ Bucket: env().S3_BUCKET, Delete: { Objects: objects } }));
+  }
+  async read(key: string): Promise<Buffer | null> {
+    assertKey(key);
+    const object = await this.client.send(new GetObjectCommand({ Bucket: env().S3_BUCKET, Key: key }));
+    return object.Body ? Buffer.from(await object.Body.transformToByteArray()) : null;
   }
   publicUrl(key: string) {
     return `${env().S3_PUBLIC_URL!.replace(/\/$/, "")}/${key}`;
