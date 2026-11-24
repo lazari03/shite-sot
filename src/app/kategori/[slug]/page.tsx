@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { getDiscoveryOptions } from "@/features/catalog/discovery-options";
 import { Shell } from "@/ui/shell";
 import { getCurrentUser } from "@/server/authz";
 import { getCategoryBySlug, getCities } from "@/features/catalog/queries";
@@ -39,7 +40,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
   if (!cat) notFound();
   const filters = DiscoveryFilters.parse({ ...Object.fromEntries(Object.entries(sp).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v])), category: cat.slug, q: undefined });
   const now = new Date();
-  const [t, user, cities, result] = await Promise.all([getTranslations(), getCurrentUser(), getCities(), discoverListings(filters, now)]);
+  const [t, user, cities, result, options] = await Promise.all([getTranslations(), getCurrentUser(), getCities(), discoverListings(filters, now), getDiscoveryOptions()]);
   const spotlight = filters.page === 1 ? await promotedListings("CATEGORY_SPOTLIGHT", { limit: 4, categoryIds: [cat.id, ...cat.children.map((c) => c.id)] }, now) : [];
   const saved = await favoriteIdsFor(user?.id, spotlight.map((s) => s.id));
   await track("CATEGORY_VIEW", { categoryId: cat.id, userId: user?.id, dedupe: true });
@@ -75,7 +76,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
             </CardGrid>
           </section>
         )}
-        <Filters action={`/kategori/${cat.slug}`} filters={filters} cities={cities} />
+        <Filters action={`/kategori/${cat.slug}`} filters={filters} cities={cities} options={options} />
         <Results result={result} filters={filters} basePath={`/kategori/${cat.slug}`} userId={user?.id} serverNow={now.getTime()} />
       </div>
     </Shell>

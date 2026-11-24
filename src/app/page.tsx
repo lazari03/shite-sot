@@ -113,13 +113,13 @@ export default async function HomePage() {
           <h2 id="cities" className="h-display text-[22px] md:text-[28px]">
             {t("home.byCity")}
           </h2>
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          <nav aria-labelledby="cities" className="scroll-x -mx-4 mt-2 snap-x px-4 py-1 md:-mx-8 md:px-8">
             {cities.map((c) => (
-              <Link key={c.id} href={`/kerko?city=${c.slug}`} className="chip">
+              <Link key={c.id} href={`/kerko?city=${c.slug}`} className="chip min-h-11 snap-start">
                 {c.name}
               </Link>
             ))}
-          </div>
+          </nav>
         </section>
 
         <section id="si-funksionon" aria-labelledby="how-title" className="my-7 grid scroll-mt-4 items-center gap-5 rounded-[var(--radius-lg)] bg-sage p-4 md:my-10 md:p-7 lg:grid-cols-[.9fr_1.4fr] lg:gap-7">

@@ -34,7 +34,7 @@ Environments `staging` and `production` (add a required reviewer on production) 
 ## 3. Pipeline
 
 - `ci.yml` (PRs + main): install → lint → typecheck → i18n check → Vitest (real Postgres service) → `next build` → Playwright (mobile + desktop) → Docker build.
-- `deploy.yml`: after CI succeeds on `main` → build/push `ghcr.io/<repo>:<sha>` (skipped if it exists) → ship `compose.prod.yaml`, `Caddyfile`, `deploy.sh` → `deploy.sh <sha>` on the server → public `/api/health` check. Production: run the workflow manually with `environment=production` and the SHA that is already on staging.
+- `deploy.yml`: after CI succeeds on a push to `main`, build and publish that SHA and deploy it to the `production` GitHub environment. Manual dispatch supports staging and production. Configure the production SSH secrets and `PUBLIC_URL` before relying on automatic deployments.
 
 `scripts/deploy.sh` on the server: pull → `docker compose up -d --wait` (the one-shot `migrate` service runs first; web/worker wait for it) → poll health → on failure **automatically restarts the previous tag** → record `.current_tag`/`.previous_tag` → prune dangling images and unused images older than 7 days (never volumes, never images used by running containers).
 

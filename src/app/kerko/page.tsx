@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
+import { getDiscoveryOptions } from "@/features/catalog/discovery-options";
 import { Shell } from "@/ui/shell";
 import { getCurrentUser } from "@/server/authz";
 import { getCategoryTree, getCities } from "@/features/catalog/queries";
@@ -28,7 +29,7 @@ export default async function SearchPage({ searchParams }: { searchParams: SP })
   const sp = await searchParams;
   const filters = DiscoveryFilters.parse(Object.fromEntries(Object.entries(sp).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v])));
   const now = new Date();
-  const [t, user, cities, categories] = await Promise.all([getTranslations(), getCurrentUser(), getCities(), getCategoryTree()]);
+  const [t, user, cities, categories, options] = await Promise.all([getTranslations(), getCurrentUser(), getCities(), getCategoryTree(), getDiscoveryOptions()]);
 
   let limited = false;
   if (filters.q) {
@@ -58,7 +59,7 @@ export default async function SearchPage({ searchParams }: { searchParams: SP })
             </Link>
           ))}
         </nav>
-        <Filters action="/kerko" filters={filters} cities={cities} keepQuery />
+        <Filters action="/kerko" filters={filters} cities={cities} options={options} keepQuery />
         {limited ? <p className="error mt-6">{t("errors.RATE_LIMITED")}</p> : <Results result={result} filters={filters} basePath="/kerko" userId={user?.id} serverNow={now.getTime()} />}
       </div>
     </Shell>
