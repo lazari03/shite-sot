@@ -3,18 +3,10 @@
 # Usage: scripts/make-prod-env.sh <domain> <acme-email>
 set -euo pipefail
 DOMAIN="$1"; ACME_EMAIL="$2"
-for f in .env.production .env.db.production .deploy.env.production; do
+for f in .env.production .deploy.env.production; do
   if [ -f "$f" ]; then echo "✗ $f already exists. Delete it first if you really want new secrets."; exit 1; fi
 done
 rand() { openssl rand -base64 48 | tr -d '/+=\n' | cut -c1-"$1"; }
-DB_PW="$(rand 32)"
-
-cat > .env.db.production <<ENV
-POSTGRES_USER=shitshpejt
-POSTGRES_PASSWORD=$DB_PW
-POSTGRES_DB=shitshpejt
-ENV
-
 cat > .deploy.env.production <<ENV
 DOMAIN=$DOMAIN
 ACME_EMAIL=$ACME_EMAIL
@@ -25,7 +17,8 @@ APP_ENV=production
 SITE_URL=https://$DOMAIN
 BETTER_AUTH_URL=https://$DOMAIN
 BETTER_AUTH_SECRET=$(rand 64)
-DATABASE_URL=postgresql://shitshpejt:$DB_PW@postgres:5432/shitshpejt
+# Paste the Supabase direct or session pooler connection URI with sslmode=require.
+DATABASE_URL=
 ANALYTICS_SALT=$(rand 32)
 
 # Emails: off for now. Users sign up and are logged in immediately.
@@ -55,5 +48,5 @@ MODERATION_MODE=first_n
 MODERATION_TRUST_AFTER=3
 LOG_LEVEL=info
 ENV
-chmod 600 .env.production .env.db.production .deploy.env.production
-echo "✓ created .env.production, .env.db.production, .deploy.env.production"
+chmod 600 .env.production .deploy.env.production
+echo "✓ created .env.production,, .deploy.env.production"

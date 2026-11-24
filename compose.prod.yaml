@@ -1,4 +1,4 @@
-# Production / staging on one Hetzner VM. Usage (from /opt/shitshpejt):
+# Production / staging on Hetzner with Supabase PostgreSQL. Usage (from /opt/shitshpejt):
 #   TAG=<git-sha> docker compose -f compose.prod.yaml up -d
 x-app: &app
   image: ghcr.io/${IMAGE_REPO:-lazari03/shite-sot}:${TAG:?set TAG}
@@ -6,8 +6,6 @@ x-app: &app
   environment:
     LOCAL_STORAGE_DIR: /app/storage
   logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
-  depends_on:
-    postgres: { condition: service_healthy }
 
 services:
   caddy:
@@ -44,17 +42,7 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
 
-  postgres:
-    image: postgres:17
-    restart: unless-stopped
-    env_file: .env.db
-    volumes: [pgdata:/var/lib/postgresql/data]
-    healthcheck: { test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"], interval: 5s, retries: 20 }
-    shm_size: 256mb
-    logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
-
 volumes:
-  pgdata: {}
   media: {}
   caddy_data: {}
   caddy_config: {}

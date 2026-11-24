@@ -130,9 +130,8 @@ prod-env: ## 2. Create production env files with random secrets. DOMAIN=... EMAI
 
 server-env: need-host ## 3. Upload the env files to the server
 > scp .env.production $(REMOTE):$(APP_DIR)/.env
-> scp .env.db.production $(REMOTE):$(APP_DIR)/.env.db
 > scp .deploy.env.production $(REMOTE):$(APP_DIR)/.deploy.env
-> ssh $(REMOTE) 'chmod 600 $(APP_DIR)/.env $(APP_DIR)/.env.db $(APP_DIR)/.deploy.env'
+> ssh $(REMOTE) 'chmod 600 $(APP_DIR)/.env $(APP_DIR)/.deploy.env'
 
 ship: need-host ## 4. Build here, upload, migrate, start, health check (auto-rollback)
 > docker buildx build --platform $(PLATFORM) -f docker/Dockerfile -t $(IMAGE_REF) --load .
@@ -159,7 +158,7 @@ server-admin: need-host ## Make a registered user admin: EMAIL=you@example.com
 > ssh $(REMOTE) '$(ON_SERVER) run --rm migrate admin-grant $(EMAIL)'
 
 server-backup: need-host ## Download a database backup (backup-DATE.dump)
-> ssh $(REMOTE) '$(ON_SERVER) exec -T postgres sh -c "pg_dump -U shitshpejt -Fc shitshpejt"' > backup-$$(date +%F-%H%M).dump
+> ssh $(REMOTE) 'docker run --rm --env-file $(APP_DIR)/.env postgres:17 sh -c "exec pg_dump -Fc --schema=public \"\$DATABASE_URL\""' > backup-$(date +%F-%H%M).dump
 
 # ---------- cleanup ----------
 .PHONY: clean

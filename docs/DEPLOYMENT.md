@@ -6,7 +6,7 @@ One image (`docker/Dockerfile`) with three roles selected by the command: `web` 
 
 ## 1. Server bootstrap (once per VM)
 
-Ubuntu 24.04, Hetzner Cloud Firewall: 22 (your IP), 80, 443 TCP+UDP. Postgres is never exposed.
+Ubuntu 24.04, Hetzner Cloud Firewall: 22 (your IP), 80, 443 TCP+UDP. The Hetzner host runs the web app and worker. Both connect to Supabase PostgreSQL over TLS.
 
 ```bash
 adduser --disabled-password deploy && usermod -aG docker deploy
@@ -18,11 +18,10 @@ Files the deploy user creates by hand in `/opt/shitshpejt` (never in git):
 
 | File | Contents |
 |---|---|
-| `.env` | app config, see `.env.example`. Production: `APP_ENV=production`, `SITE_URL=https://shitshpejt.al`, `BETTER_AUTH_URL` same, `BETTER_AUTH_SECRET=$(openssl rand -base64 48)`, `DATABASE_URL=postgresql://shitshpejt:<pw>@postgres:5432/shitshpejt`, `STORAGE_DRIVER=s3` + `S3_*`, `EMAIL_PROVIDER=resend` + `RESEND_API_KEY`, `ANALYTICS_SALT=<random>` |
-| `.env.db` | `POSTGRES_USER=shitshpejt`, `POSTGRES_PASSWORD=<pw>`, `POSTGRES_DB=shitshpejt` |
+| `.env` | app config, see `.env.example`. Production: `APP_ENV=production`, `SITE_URL=https://shitshpejt.al`, `BETTER_AUTH_URL` same, `BETTER_AUTH_SECRET=$(openssl rand -base64 48)`, `DATABASE_URL` set to the [Supabase direct or session pooler URI](https://supabase.com/docs/guides/database/connecting-to-postgres) on port 5432 with `sslmode=require`, `STORAGE_DRIVER=s3` + `S3_*`, `EMAIL_PROVIDER=resend` + `RESEND_API_KEY`, `ANALYTICS_SALT=<random>` |
 | `.deploy.env` | `DOMAIN=shitshpejt.al`, `ACME_EMAIL=ops@…` (read by `deploy.sh` for Caddy) |
 
-`chmod 600 .env .env.db`.
+`chmod 600 .env`. Enter the Supabase database URI in the server environment over a secure channel. Use the session pooler on an IPv4-only host. The web, worker, and migrate roles all use this URI.
 
 ## 2. GitHub configuration
 
@@ -64,25 +63,9 @@ Migrations must be **backward compatible** (expand → migrate → contract acro
 
 ## 5. Backups & restore
 
-Nightly logical backup (cron on the host, 03:30 Europe/Tirane), uploaded to the Hetzner backup bucket with lifecycle rules (14 daily / 8 weekly / 12 monthly):
+Use [Supabase database backups](https://supabase.com/docs/guides/platform/backups) for Postgres. The application schema can also be exported with `make server-backup HOST=...`. That export covers the public schema. Enable Hetzner backups or bucket versioning separately for uploaded media.
 
-```bash
-docker compose -f compose.prod.yaml exec -T postgres pg_dump -U shitshpejt -Fc shitshpejt \
-  | zstd -q > /var/backups/shitshpejt/$(date +%F).dump.zst
-aws --endpoint-url "$S3_ENDPOINT" s3 cp /var/backups/shitshpejt/$(date +%F).dump.zst s3://shitshpejt-backups/prod/
-find /var/backups/shitshpejt -mtime +3 -delete
-```
-
-Also enable Hetzner server backups and bucket versioning on the media bucket.
-
-Restore (practise monthly on staging):
-
-```bash
-zstd -dc 2026-11-19.dump.zst | docker compose -f compose.prod.yaml exec -T postgres \
-  pg_restore -U shitshpejt -d shitshpejt --clean --if-exists --no-owner
-```
-
-After a restore, run the `migrate` service once (it is idempotent) and restart `web` + `worker`.
+Before a production cutover, inventory and back up any existing Hetzner data. If data needs to be preserved, restore it to a staging target and verify users, listings, ownership and worker jobs before changing production credentials.
 
 ## 6. Operations
 
