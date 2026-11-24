@@ -14,6 +14,7 @@ import { canUnmarkSold, effectiveStatus, isDeletable, isEditable } from "@/featu
 import { needsModeration } from "@/features/auth/policy";
 import { imageUrl } from "@/features/media/service";
 import { Gallery } from "@/features/listings/components/gallery";
+import { AI_REVIEW_DECLINED } from "@/features/listings/ai-review-policy";
 import { OwnerActions } from "@/features/listings/components/owner-actions";
 import { paymentsEnabled } from "@/features/promotions/payments";
 import { formatPrice } from "@/lib/money";
@@ -36,7 +37,7 @@ export default async function ManageListingPage({ params, searchParams }: { para
   let willReview = false;
   if (status === "DRAFT" || status === "REJECTED") {
     const approvedCount = await db.listing.count({ where: { sellerId: user.id, publishedAt: { not: null } } });
-    willReview = needsModeration({ mode: env().MODERATION_MODE, trusted: user.trusted, approvedCount, trustAfter: env().MODERATION_TRUST_AFTER });
+    willReview = env().AI_MODERATION_ENABLED || l.rejectionReason === AI_REVIEW_DECLINED || needsModeration({ mode: env().MODERATION_MODE, trusted: user.trusted, approvedCount, trustAfter: env().MODERATION_TRUST_AFTER });
   }
   const products = status === "ACTIVE" ? await db.promotionProduct.findMany({ where: { active: true, placement: { not: null } }, orderBy: { priceMinor: "asc" } }) : [];
   const contact = await db.user.findUniqueOrThrow({ where: { id: user.id }, select: { contactConsent: true, whatsapp: true } });
@@ -63,7 +64,7 @@ export default async function ManageListingPage({ params, searchParams }: { para
             <Price minor={l.priceMinor} currency={l.currency} className="text-[36px]" />
             {status === "REJECTED" && l.rejectionReason && (
               <p className="rounded-[var(--radius-sm)] bg-clay-soft p-3 text-sm text-[#9c2f12]">
-                <b>{t("dashboard.rejectedReason")}</b> {l.rejectionReason}
+                <b>{t("dashboard.rejectedReason")}</b> {l.rejectionReason === AI_REVIEW_DECLINED ? t("dashboard.aiDeclined") : l.rejectionReason}
               </p>
             )}
             {status === "ACTIVE" && l.expiresAt && (
@@ -84,7 +85,7 @@ export default async function ManageListingPage({ params, searchParams }: { para
                 </Link>
               </p>
             )}
-            <OwnerActions id={l.id} slug={l.slug} status={status} canUnmark={canUnmarkSold(l, now)} deletable={isDeletable(l)} editable={isEditable(status)} />
+            <OwnerActions appeal={l.rejectionReason === AI_REVIEW_DECLINED} id={l.id} slug={l.slug} status={status} canUnmark={canUnmarkSold(l, now)} deletable={isDeletable(l)} editable={isEditable(status)} />
             {l.publishedAt && (
               <dl className="grid grid-cols-3 gap-3 border-y border-line py-4 text-center">
                 <div>

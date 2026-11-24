@@ -1,14 +1,14 @@
 import { MapPin, Camera } from "lucide-react";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
 import type { ListingCard as Card } from "@/features/listings/queries";
 import { cn } from "@/lib/cn";
 import { Countdown } from "./countdown";
 import { Price } from "./price";
 import { SaveButton } from "./save-button";
 
-export async function ListingCard({ item, serverNow, saved, loggedIn, priority }: { item: Card; serverNow: number; saved?: boolean; loggedIn: boolean; priority?: boolean }) {
-  const t = await getTranslations();
+export function ListingCard({ item, serverNow, saved, loggedIn, priority }: { item: Card; serverNow: number; saved?: boolean; loggedIn: boolean; priority?: boolean }) {
+  const t = useTranslations();
   const expired = item.status !== "ACTIVE";
   return (
     <article className={cn("card", expired && "is-expired")}>
@@ -39,6 +39,12 @@ export async function ListingCard({ item, serverNow, saved, loggedIn, priority }
           <div className="mt-2">
             <Price minor={item.priceMinor} currency={item.currency} className="text-[clamp(17px,5vw,21px)] wrap-anywhere md:text-[25px]" />
           </div>
+          {item.priceAssessment && (
+            <p className="mt-2 text-xs font-semibold text-muted">
+              {t("listing.priceRating", { score: item.priceAssessment.score })}
+              {item.priceAssessment.belowTypical && <span className="block text-sage-ink">{t("listing.belowComparablePrices")}</span>}
+            </p>
+          )}
           <div className="mt-2 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[13px] text-muted">
             <span className="inline-flex items-center gap-1">
               <MapPin className="size-3.5" aria-hidden />

@@ -26,6 +26,8 @@
     "fine": "Every deal has a fixed price and lasts 48 hours. ShitShpejt is not part of the payment: meet the seller and check the item."
   },
   "search": {
+    "moreListings": "More listings",
+    "moreFailed": "Automatic loading failed. Open the next page to continue.",
     "label": "Search deals",
     "placeholder": "Search iPhone, PS5, laptop…",
     "title": "Search",
@@ -89,6 +91,8 @@
     "endsIn": "Ends in"
   },
   "listing": {
+    "priceRating": "Price rating {score}/100 · comparable asking prices",
+    "belowComparablePrices": "Below comparable asking prices",
     "sponsored": "Sponsored",
     "save": "Save: {title}",
     "unsave": "Remove from saved: {title}",
@@ -175,6 +179,8 @@
     }
   },
   "errors": {
+    "listing_email_required": "Verify your email before publishing a listing.",
+    "listing_submission_invalid": "Check the title, description, price, and photos before submitting.",
     "VALIDATION": "Check the highlighted fields.",
     "fix_fields": "Check the highlighted fields above.",
     "UNAUTHENTICATED": "You need to log in.",
@@ -325,6 +331,8 @@
     "previewTimer": "Ends in"
   },
   "dashboard": {
+    "aiDeclined": "The automated review could not approve this listing. Resubmit it to request a human review.",
+    "resubmitReview": "Resubmit for review",
     "title": "My dashboard",
     "hello": "Hi, {name}.",
     "manageTitle": "My listing",

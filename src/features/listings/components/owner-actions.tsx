@@ -7,9 +7,9 @@ import { useTranslations } from "next-intl";
 import { CheckCircle2, Pencil, Trash2, Undo2, Send, ExternalLink } from "lucide-react";
 import { deleteListingAction, ownerTransitionAction, submitListingAction } from "../actions";
 
-type Props = { id: string; slug: string; status: string; canUnmark: boolean; deletable: boolean; editable: boolean; compact?: boolean };
+type Props = { id: string; slug: string; status: string; canUnmark: boolean; deletable: boolean; editable: boolean; compact?: boolean; appeal?: boolean };
 
-export function OwnerActions({ id, slug, status, canUnmark, deletable, editable, compact }: Props) {
+export function OwnerActions({ id, slug, status, canUnmark, deletable, editable, compact, appeal }: Props) {
   const t = useTranslations("dashboard");
   const te = useTranslations("errors");
   const router = useRouter();
@@ -40,7 +40,7 @@ export function OwnerActions({ id, slug, status, canUnmark, deletable, editable,
         {(status === "DRAFT" || status === "REJECTED") && (
           <button type="button" className={`btn btn-lime ${size}`} disabled={pending} onClick={() => run(() => submitListingAction(id))}>
             <Send className="size-4" aria-hidden />
-            {t("publish")}
+            {t(appeal || status === "REJECTED" ? "resubmitReview" : "publish")}
           </button>
         )}
         {status === "ACTIVE" && (

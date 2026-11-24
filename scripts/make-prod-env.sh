@@ -21,12 +21,9 @@ BETTER_AUTH_SECRET=$(rand 64)
 DATABASE_URL=
 ANALYTICS_SALT=$(rand 32)
 
-# Emails: off for now. Users sign up and are logged in immediately.
-# Password-reset links only show in the server logs (make server-logs).
-# Later: get a key at resend.com, then set EMAIL_PROVIDER=resend, RESEND_API_KEY=... and
-# REQUIRE_EMAIL_VERIFICATION=true, and run make deploy again.
-EMAIL_PROVIDER=console
-REQUIRE_EMAIL_VERIFICATION=false
+# Production email verification requires a Resend key and a verified sender domain.
+EMAIL_PROVIDER=resend
+REQUIRE_EMAIL_VERIFICATION=true
 EMAIL_FROM="ShitShpejt <njoftime@$DOMAIN>"
 RESEND_API_KEY=
 

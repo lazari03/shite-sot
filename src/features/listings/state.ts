@@ -12,6 +12,7 @@ type Options = {
   asAdmin?: boolean;
   note?: string;
   now?: Date;
+  expectedAiReview?: { updatedAt: Date; checkedAt: Date };
 };
 
 /**
@@ -30,6 +31,7 @@ export async function transitionListing(tx: Tx, listing: Listing, reason: Transi
       if (reason === "submit" && requested === "PENDING_REVIEW") {
         to = "PENDING_REVIEW";
         data.submittedAt = now;
+        data.aiModerationCheckedAt = null;
         break;
       }
       const out = activationOutcome(listing, now);
@@ -69,6 +71,7 @@ export async function transitionListing(tx: Tx, listing: Listing, reason: Transi
     case "material_edit":
       to = "PENDING_REVIEW";
       data.submittedAt = now;
+      data.aiModerationCheckedAt = null;
       break;
   }
 
@@ -84,7 +87,18 @@ export async function transitionListing(tx: Tx, listing: Listing, reason: Transi
   }
   data.status = to;
 
-  const res = await tx.listing.updateMany({ where: { id: listing.id, status: listing.status }, data: data as Prisma.ListingUpdateManyMutationInput });
+  const res = await tx.listing.updateMany({
+    where: {
+      id: listing.id,
+      status: listing.status,
+      ...((reason === "submit" || reason === "approve") && { updatedAt: listing.updatedAt }),
+      ...(opts.expectedAiReview && {
+        updatedAt: opts.expectedAiReview.updatedAt,
+        aiModerationCheckedAt: opts.expectedAiReview.checkedAt,
+      }),
+    },
+    data: data as Prisma.ListingUpdateManyMutationInput,
+  });
   if (res.count !== 1) throw new AppError("CONFLICT", "listing_changed");
   const updated = await tx.listing.findUniqueOrThrow({ where: { id: listing.id } });
 

@@ -23,6 +23,7 @@ export type ListingCard = {
   expiresAt: string | null;
   status: ListingStatus;
   promoted: boolean;
+  priceAssessment?: { score: number; belowTypical: boolean };
 };
 
 const cardInclude = {
@@ -35,6 +36,11 @@ type CardRow = Prisma.ListingGetPayload<{ include: typeof cardInclude }>;
 
 export function toCard(l: CardRow, now = new Date(), promotedIds?: Set<string>): ListingCard {
   const img = l.images[0];
+  const assessment = l.priceAssessment;
+  const priceAssessment = assessment && typeof assessment === "object" && !Array.isArray(assessment) &&
+    typeof assessment.score === "number" && typeof assessment.belowTypical === "boolean"
+    ? { score: assessment.score, belowTypical: assessment.belowTypical }
+    : undefined;
   return {
     id: l.id,
     slug: l.slug,
@@ -50,6 +56,7 @@ export function toCard(l: CardRow, now = new Date(), promotedIds?: Set<string>):
     expiresAt: l.expiresAt?.toISOString() ?? null,
     status: effectiveStatus(l, now),
     promoted: promotedIds?.has(l.id) ?? false,
+    priceAssessment,
   };
 }
 
