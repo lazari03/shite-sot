@@ -19,7 +19,7 @@ export type ModerationMode = "all" | "first_n" | "none";
 
 /** Does a submission by this seller need pre-moderation? */
 export function needsModeration(opts: { mode: ModerationMode; trusted: boolean; approvedCount: number; trustAfter: number }): boolean {
-  if (opts.trusted || opts.mode === "none") return false;
   if (opts.mode === "all") return true;
+  if (opts.trusted || opts.mode === "none") return false;
   return opts.approvedCount < opts.trustAfter;
 }

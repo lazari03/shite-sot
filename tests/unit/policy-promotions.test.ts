@@ -21,6 +21,7 @@ describe("authorization helpers", () => {
     expect(isListingOwner(user(), { sellerId: "u1" })).toBe(true);
   });
   it("moderation policy", () => {
+    expect(needsModeration({ mode: "all", trusted: true, approvedCount: 10, trustAfter: 3 })).toBe(true);
     expect(needsModeration({ mode: "first_n", trusted: false, approvedCount: 0, trustAfter: 3 })).toBe(true);
     expect(needsModeration({ mode: "first_n", trusted: false, approvedCount: 3, trustAfter: 3 })).toBe(false);
     expect(needsModeration({ mode: "first_n", trusted: true, approvedCount: 0, trustAfter: 3 })).toBe(false);

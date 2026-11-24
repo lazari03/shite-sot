@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/server/db";
 import { imageUrl } from "@/features/media/service";
 
@@ -52,11 +53,16 @@ export async function dailyActivity(days = 14, now = new Date()) {
   return [...byDay.entries()].map(([day, counts]) => ({ day, counts }));
 }
 
-export async function moderationQueue() {
+export async function moderationQueue(view: "pending" | "all", requestedPage: number) {
+  const pageSize = 25;
+  const where: Prisma.ListingWhereInput = view === "pending" ? { status: "PENDING_REVIEW" } : {};
+  const pageCount = Math.max(1, Math.ceil((await db.listing.count({ where })) / pageSize));
+  const page = Math.min(requestedPage, pageCount);
   const rows = await db.listing.findMany({
-    where: { status: "PENDING_REVIEW" },
-    orderBy: { submittedAt: "asc" },
-    take: 50,
+    where,
+    orderBy: view === "pending" ? [{ submittedAt: "asc" }, { id: "asc" }] : [{ createdAt: "desc" }, { id: "desc" }],
+    take: pageSize,
+    skip: (page - 1) * pageSize,
     include: {
       images: { orderBy: { position: "asc" } },
       category: { select: { name: true } },
@@ -64,7 +70,7 @@ export async function moderationQueue() {
       seller: { select: { id: true, name: true, email: true, createdAt: true, _count: { select: { listings: true } } } },
     },
   });
-  return rows.map((l) => ({ ...l, imageUrls: l.images.map((i) => imageUrl(i.key, 640)) }));
+  return { page, pageCount, listings: rows.map((l) => ({ ...l, imageUrls: l.images.map((i) => imageUrl(i.key, 640)) })) };
 }
 
 export async function openReports() {
