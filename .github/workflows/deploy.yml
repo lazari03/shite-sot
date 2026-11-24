@@ -1,6 +1,6 @@
 name: Deploy
 
-# main -> staging automatically. Production: run manually with the SHA you want (same image, promoted).
+# Production deploys after successful CI on pushes to main. Staging is available by manual dispatch.
 on:
   workflow_run:
     workflows: [CI]
@@ -12,13 +12,13 @@ on:
         description: Target environment
         type: choice
         options: [staging, production]
-        default: staging
+        default: production
       sha:
         description: Git SHA (image tag) to deploy. Defaults to the current commit.
         required: false
 
 concurrency:
-  group: deploy-${{ inputs.environment || 'staging' }}
+  group: deploy-${{ inputs.environment || 'production' }}
   cancel-in-progress: false
 
 permissions:
@@ -27,13 +27,17 @@ permissions:
 
 jobs:
   image:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - id: tag
-        run: echo "tag=${{ inputs.sha || github.event.workflow_run.head_sha || github.sha }}" >> "$GITHUB_OUTPUT"
+        env:
+          DEPLOY_TAG: ${{ inputs.sha || github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          [[ "$DEPLOY_TAG" =~ ^[a-f0-9]{40}$ ]] || { echo "Expected a full commit SHA."; exit 1; }
+          printf 'tag=%s\n' "$DEPLOY_TAG" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
           ref: ${{ steps.tag.outputs.tag }}
@@ -52,7 +56,7 @@ jobs:
   deploy:
     needs: image
     runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment || 'staging' }}
+    environment: ${{ inputs.environment || 'production' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -61,18 +65,35 @@ jobs:
             compose.prod.yaml
             docker/Caddyfile
             scripts/deploy.sh
+      - name: Confirm this is still the current main commit
+        id: current
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DEPLOY_TAG: ${{ needs.image.outputs.tag }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_run ]; then
+            main_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
+            if [ "$main_sha" != "$DEPLOY_TAG" ]; then
+              echo "Skipping deployment of an older main commit."
+              echo 'skip=true' >> "$GITHUB_OUTPUT"
+            fi
+          fi
       - name: Install SSH key
+        if: steps.current.outputs.skip != 'true'
         run: |
           install -m 700 -d ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
           echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
       - name: Ship compose files
+        if: steps.current.outputs.skip != 'true'
         run: |
           scp compose.prod.yaml scripts/deploy.sh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/shitshpejt/"
           scp docker/Caddyfile "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/shitshpejt/docker/Caddyfile"
       - name: Deploy + health check (auto-rollback on failure)
+        if: steps.current.outputs.skip != 'true'
         run: |
           ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
             "cd /opt/shitshpejt && GHCR_USER='${{ github.actor }}' GHCR_TOKEN='${{ secrets.GITHUB_TOKEN }}' IMAGE_REPO='${GITHUB_REPOSITORY,,}' bash deploy.sh '${{ needs.image.outputs.tag }}'"
       - name: Public health check
+        if: steps.current.outputs.skip != 'true'
         run: curl -fsS --retry 10 --retry-delay 5 --retry-all-errors "${{ vars.PUBLIC_URL }}/api/health"

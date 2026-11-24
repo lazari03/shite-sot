@@ -3,20 +3,21 @@
 import { useRef } from "react";
 import { useTranslations } from "next-intl";
 import { SlidersHorizontal } from "lucide-react";
-import { CONDITIONS, SORTS, type DiscoveryFiltersValue } from "../schema";
+import type { DiscoveryOption } from "@/features/catalog/discovery-options";
+import type { DiscoveryFiltersValue } from "../schema";
 
 type Props = {
   action: string;
   filters: DiscoveryFiltersValue;
+  options: { conditions: DiscoveryOption[]; sorts: DiscoveryOption[] };
   cities: Array<{ slug: string; name: string }>;
   /** Keep the query when filtering on /kerko. */
   keepQuery?: boolean;
 };
 
 /** Plain GET form (works without JS); selects auto-submit when JS is available. */
-export function Filters({ action, filters, cities, keepQuery }: Props) {
+export function Filters({ action, filters, cities, options, keepQuery }: Props) {
   const t = useTranslations("filters");
-  const tc = useTranslations("condition");
   const ref = useRef<HTMLFormElement>(null);
   const submit = () => ref.current?.requestSubmit();
   const sel = "input h-10 text-sm font-semibold md:h-11";
@@ -39,9 +40,9 @@ export function Filters({ action, filters, cities, keepQuery }: Props) {
         <span className="text-xs font-semibold text-muted">{t("condition")}</span>
         <select name="condition" defaultValue={filters.condition ?? ""} className={sel} onChange={submit}>
           <option value="">{t("anyCondition")}</option>
-          {CONDITIONS.map((c) => (
-            <option key={c} value={c}>
-              {tc(c)}
+          {options.conditions.map((c) => (
+            <option key={c.key} value={c.key}>
+              {c.label}
             </option>
           ))}
         </select>
@@ -57,9 +58,9 @@ export function Filters({ action, filters, cities, keepQuery }: Props) {
       <label className="field md:w-52">
         <span className="text-xs font-semibold text-muted">{t("sort")}</span>
         <select name="sort" defaultValue={filters.sort} className={sel} onChange={submit}>
-          {SORTS.map((s) => (
-            <option key={s} value={s}>
-              {t(`sorts.${s}`)}
+          {options.sorts.map((s) => (
+            <option key={s.key} value={s.key}>
+              {s.label}
             </option>
           ))}
         </select>

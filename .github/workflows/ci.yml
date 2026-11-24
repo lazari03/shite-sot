@@ -30,6 +30,9 @@ jobs:
       DATABASE_URL: postgresql://shitshpejt:shitshpejt@localhost:5432/shitshpejt
       TEST_DATABASE_URL: postgresql://shitshpejt:shitshpejt@localhost:5432/shitshpejt_test
       E2E_DATABASE_URL: postgresql://shitshpejt:shitshpejt@localhost:5432/shitshpejt_e2e
+      BETTER_AUTH_SECRET: ci-only-secret-that-is-long-enough-for-validation
+      BETTER_AUTH_URL: http://localhost:3000
+      SITE_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
