@@ -49,8 +49,9 @@ async function reviewListing(apiKey: string, model: string, instructions: string
   const output = result.data.output
     .filter((item) => item.type === "message")
     .flatMap((item) => item.content ?? []);
-  if (output.length !== 1 || output[0].type !== "output_text" || !output[0].text) return "needs_human_review";
-  const decision = Review.safeParse(JSON.parse(output[0].text));
+  const [message] = output;
+  if (output.length !== 1 || message?.type !== "output_text" || !message.text) return "needs_human_review";
+  const decision = Review.safeParse(JSON.parse(message.text));
   return decision.success ? decision.data.decision : "needs_human_review";
 }
 
