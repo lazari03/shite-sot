@@ -39,6 +39,12 @@ export function ListingCard({ item, serverNow, saved, loggedIn, priority }: { it
           <div className="mt-2">
             <Price minor={item.priceMinor} currency={item.currency} className="text-[clamp(17px,5vw,21px)] wrap-anywhere md:text-[25px]" />
           </div>
+          {item.priceAssessment && (
+            <p className="mt-2 text-xs font-semibold text-muted">
+              {t("listing.priceRating", { score: item.priceAssessment.score })}
+              {item.priceAssessment.belowTypical && <span className="block text-sage-ink">{t("listing.belowComparablePrices")}</span>}
+            </p>
+          )}
           <div className="mt-2 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[13px] text-muted">
             <span className="inline-flex items-center gap-1">
               <MapPin className="size-3.5" aria-hidden />

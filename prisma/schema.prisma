@@ -220,6 +220,7 @@ model ModerationPrompt {
 
 model Listing {
   aiModerationCheckedAt DateTime?
+  priceAssessment      Json?
   id                   String           @id @default(cuid())
   sellerId             String
   seller               User             @relation(fields: [sellerId], references: [id], onDelete: Cascade)

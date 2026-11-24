@@ -91,6 +91,7 @@ export async function transitionListing(tx: Tx, listing: Listing, reason: Transi
     where: {
       id: listing.id,
       status: listing.status,
+      ...((reason === "submit" || reason === "approve") && { updatedAt: listing.updatedAt }),
       ...(opts.expectedAiReview && {
         updatedAt: opts.expectedAiReview.updatedAt,
         aiModerationCheckedAt: opts.expectedAiReview.checkedAt,

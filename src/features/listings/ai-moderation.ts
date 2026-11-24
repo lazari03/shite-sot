@@ -4,9 +4,11 @@ import { env } from "@/env";
 import { db } from "@/server/db";
 import { AppError } from "@/server/errors";
 import { storage } from "@/server/storage";
+import { AI_REVIEW_DECLINED, assessComparablePrice } from "./ai-review-policy";
+import { validateSubmission } from "./service";
 import { transitionListing } from "./state";
 
-const Review = z.object({ decision: z.enum(["approve", "needs_human_review"]) });
+const Review = z.object({ decision: z.enum(["approve", "decline", "needs_human_review"]) });
 const Response = z.object({
   status: z.literal("completed"),
   output: z.array(z.object({
@@ -37,19 +39,19 @@ async function reviewListing(apiKey: string, model: string, instructions: string
       max_output_tokens: 100,
       text: { format: { type: "json_schema", name: "listing_review", strict: true, schema: {
         type: "object", additionalProperties: false, required: ["decision"],
-        properties: { decision: { type: "string", enum: ["approve", "needs_human_review"] } },
+        properties: { decision: { type: "string", enum: ["approve", "decline", "needs_human_review"] } },
       } } },
     }),
   });
   if (!response.ok) throw new Error(`Moderation provider HTTP ${response.status}`);
   const result = Response.safeParse(await response.json());
-  if (!result.success) return false;
+  if (!result.success) return "needs_human_review";
   const output = result.data.output
     .filter((item) => item.type === "message")
     .flatMap((item) => item.content ?? []);
-  if (output.length !== 1 || output[0].type !== "output_text" || !output[0].text) return false;
+  if (output.length !== 1 || output[0].type !== "output_text" || !output[0].text) return "needs_human_review";
   const decision = Review.safeParse(JSON.parse(output[0].text));
-  return decision.success && decision.data.decision === "approve";
+  return decision.success ? decision.data.decision : "needs_human_review";
 }
 
 export async function moderateNextListing() {
@@ -63,6 +65,7 @@ export async function moderateNextListing() {
     publishedAt: null,
     seller: { bannedAt: null, deletedAt: null, emailVerified: true },
     aiModerationCheckedAt: null,
+    OR: [{ rejectionReason: null }, { rejectionReason: { not: AI_REVIEW_DECLINED } }],
   };
   const listing = await db.listing.findFirst({
     where: eligible,
@@ -77,16 +80,17 @@ export async function moderateNextListing() {
     data: { aiModerationCheckedAt: checkedAt, updatedAt: listing.updatedAt },
   });
   if (!claim.count || !listing.category.active || !listing.city.active || !listing.images.length || listing.images.length > 8) return 0;
+  await validateSubmission(db, listing);
   const title = redact(listing.title);
   const description = redact(listing.description);
   if (title !== listing.title || description !== listing.description) return 0;
   const photos = await Promise.all(listing.images.map(({ key }) => storage().read(`${key}/320.webp`)));
   if (photos.some((photo) => !photo?.length || photo.length > 512_000)) return 0;
 
-  const approved = await reviewListing(config.OPENAI_API_KEY, config.OPENAI_MODERATION_MODEL, prompt.instructions, {
+  const decision = await reviewListing(config.OPENAI_API_KEY, config.OPENAI_MODERATION_MODEL, prompt.instructions, {
     title, description, category: listing.category.name, condition: listing.condition, priceMinor: listing.priceMinor, currency: listing.currency,
   }, photos.filter((photo): photo is Buffer => photo !== null));
-  if (!approved) return 0;
+  if (decision === "needs_human_review") return 0;
 
   try {
     return await db.$transaction(async (tx) => {
@@ -97,12 +101,40 @@ export async function moderateNextListing() {
         },
       });
       if (!current) return 0;
+      await validateSubmission(tx, current);
+      if (decision === "decline") {
+        await transitionListing(tx, current, "reject", "AUTO", {
+          actorId: null,
+          asAdmin: true,
+          note: AI_REVIEW_DECLINED,
+          expectedAiReview: { updatedAt: listing.updatedAt, checkedAt },
+        });
+        return 0;
+      }
+      const comparables = await tx.listing.findMany({
+        where: {
+          sellerId: { not: current.sellerId },
+          seller: { bannedAt: null, deletedAt: null, emailVerified: true },
+          title: { equals: current.title, mode: "insensitive" },
+          status: "SOLD",
+          categoryId: current.categoryId,
+          currency: current.currency,
+          condition: current.condition,
+          soldAt: { gte: new Date(Date.now() - 90 * 86_400_000) },
+        },
+        distinct: ["sellerId"],
+        orderBy: [{ soldAt: "desc" }, { id: "desc" }],
+        take: 12,
+        select: { priceMinor: true },
+      });
+      const priceAssessment = assessComparablePrice(current.priceMinor, comparables.map(({ priceMinor }) => priceMinor));
       await transitionListing(tx, current, "approve", "AUTO", {
         actorId: null,
         asAdmin: true,
         note: `AI moderation · ${prompt.key} · ${config.OPENAI_MODERATION_MODEL}`,
         expectedAiReview: { updatedAt: listing.updatedAt, checkedAt },
       });
+      if (priceAssessment) await tx.listing.update({ where: { id: current.id }, data: { priceAssessment } });
       return 1;
     });
   } catch (error) {

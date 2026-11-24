@@ -1,5 +1,5 @@
 import "server-only";
-import type { Listing } from "@/generated/prisma/client";
+import { Prisma, type Listing } from "@/generated/prisma/client";
 import { db, type Tx } from "@/server/db";
 import { env } from "@/env";
 import { AppError } from "@/server/errors";
@@ -7,7 +7,8 @@ import { needsModeration, isListingOwner, isAdmin, type Actor } from "@/features
 import { listingSlug } from "@/lib/slug";
 import { classifyLiveEdit, isDeletable, isEditable } from "./rules";
 import type { ListingInputValue } from "./schema";
-import { MAX_IMAGES } from "./schema";
+import { AI_REVIEW_DECLINED } from "./ai-review-policy";
+import { ListingInput, MAX_IMAGES, SubmitRequirements } from "./schema";
 import { transitionListing } from "./state";
 import { storage } from "@/server/storage";
 
@@ -56,6 +57,7 @@ export async function createDraft(actor: Actor, input: ListingInputValue): Promi
         condition: input.condition,
         locationNote: input.locationNote,
         aiModerationCheckedAt: null,
+        priceAssessment: Prisma.DbNull,
         status: "DRAFT",
       },
     });
@@ -75,6 +77,7 @@ export async function updateListing(actor: Actor, listingId: string, input: List
     const live = listing.status === "ACTIVE";
     let sentToReview = false;
     if (live) {
+      await requireVerifiedSeller(tx, actor.id);
       if (listing.expiresAt && listing.expiresAt <= new Date()) throw new AppError("INVALID_STATE", "listing_expired");
       if (input.currency !== listing.currency) throw new AppError("VALIDATION", "VALIDATION", { currency: "currency_locked" });
       const edit = classifyLiveEdit(
@@ -115,17 +118,47 @@ export async function updateListing(actor: Actor, listingId: string, input: List
   });
 }
 
-/** Seller submits a draft (or a rejected listing after fixing it). */
+async function requireVerifiedSeller(tx: Tx, sellerId: string) {
+  const seller = await tx.user.findUniqueOrThrow({
+    where: { id: sellerId },
+    select: { emailVerified: true, trusted: true, bannedAt: true, deletedAt: true },
+  });
+  if (seller.bannedAt || seller.deletedAt) throw new AppError("BANNED", "BANNED");
+  if (!seller.emailVerified) throw new AppError("FORBIDDEN", "listing_email_required");
+  return seller;
+}
+
+/** Revalidate persisted listing data and owned photos at the publication boundary. */
+export async function validateSubmission(tx: Tx, listing: Listing) {
+  await assertRefs(tx, listing);
+  const images = await tx.listingImage.findMany({ where: { listingId: listing.id }, select: { id: true, ownerId: true } });
+  if (!SubmitRequirements.safeParse({ imageCount: images.length }).success) {
+    throw new AppError("VALIDATION", "VALIDATION", { imageIds: "images_required" });
+  }
+  if (images.length > MAX_IMAGES || images.some((image) => image.ownerId !== listing.sellerId)) {
+    throw new AppError("VALIDATION", "VALIDATION", { imageIds: "images_invalid" });
+  }
+  const major = (minor: number) => listing.currency === "EUR" ? (minor / 100).toFixed(2) : String(minor);
+  if (!ListingInput.safeParse({
+    ...listing,
+    price: major(listing.priceMinor),
+    referencePrice: listing.referencePriceMinor === null ? "" : major(listing.referencePriceMinor),
+    referencePriceSource: listing.referencePriceSource ?? "",
+    locationNote: listing.locationNote ?? "",
+    imageIds: images.map((image) => image.id),
+  }).success) throw new AppError("VALIDATION", "listing_submission_invalid");
+}
+
+/** Seller submits a draft or appeals a declined listing. */
 export async function submitListing(actor: Actor, listingId: string): Promise<Listing> {
   return db.$transaction(async (tx) => {
     const listing = await tx.listing.findUnique({ where: { id: listingId } });
     if (!listing) throw new AppError("NOT_FOUND", "NOT_FOUND");
     if (!isListingOwner(actor, listing)) throw new AppError("FORBIDDEN", "FORBIDDEN");
-    const imageCount = await tx.listingImage.count({ where: { listingId } });
-    if (imageCount < 1) throw new AppError("VALIDATION", "VALIDATION", { imageIds: "images_required" });
-    const seller = await tx.user.findUniqueOrThrow({ where: { id: actor.id }, select: { trusted: true } });
+    const seller = await requireVerifiedSeller(tx, actor.id);
+    await validateSubmission(tx, listing);
     const approvedCount = await tx.listing.count({ where: { sellerId: actor.id, publishedAt: { not: null } } });
-    const review = needsModeration({ mode: env().MODERATION_MODE, trusted: seller.trusted, approvedCount, trustAfter: env().MODERATION_TRUST_AFTER });
+    const review = env().AI_MODERATION_ENABLED || listing.rejectionReason === AI_REVIEW_DECLINED || needsModeration({ mode: env().MODERATION_MODE, trusted: seller.trusted, approvedCount, trustAfter: env().MODERATION_TRUST_AFTER });
     return transitionListing(tx, listing, "submit", review ? "PENDING_REVIEW" : "ACTIVE", { actorId: actor.id });
   });
 }
@@ -135,6 +168,7 @@ export async function ownerTransition(actor: Actor, listingId: string, reason: "
     const listing = await tx.listing.findUnique({ where: { id: listingId } });
     if (!listing) throw new AppError("NOT_FOUND", "NOT_FOUND");
     if (!isListingOwner(actor, listing)) throw new AppError("FORBIDDEN", "FORBIDDEN");
+    if (reason === "unmark_sold") await requireVerifiedSeller(tx, actor.id);
     return transitionListing(tx, listing, reason, "AUTO", { actorId: actor.id });
   });
 }
@@ -157,6 +191,10 @@ export async function moderateListing(actor: Actor, listingId: string, decision:
   return db.$transaction(async (tx) => {
     const listing = await tx.listing.findUnique({ where: { id: listingId } });
     if (!listing) throw new AppError("NOT_FOUND", "NOT_FOUND");
+    if (decision === "approve") {
+      await requireVerifiedSeller(tx, listing.sellerId);
+      await validateSubmission(tx, listing);
+    }
     return transitionListing(tx, listing, decision, "AUTO", { actorId: actor.id, asAdmin: true, note });
   });
 }

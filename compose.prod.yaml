@@ -6,6 +6,8 @@ x-app: &app
   environment:
     LOCAL_STORAGE_DIR: /app/storage
     MODERATION_MODE: all
+    REQUIRE_EMAIL_VERIFICATION: "true"
+    EMAIL_PROVIDER: resend
   logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
 
 services:

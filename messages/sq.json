@@ -100,6 +100,8 @@
     "endsIn": "Mbaron për"
   },
   "listing": {
+    "priceRating": "Vlerësimi i çmimit {score}/100 · çmime të krahasueshme",
+    "belowComparablePrices": "Nën çmimet e krahasueshme",
     "sponsored": "Sponsorizuar",
     "save": "Ruaj: {title}",
     "unsave": "Hiq nga të ruajturat: {title}",
@@ -186,6 +188,8 @@
     }
   },
   "errors": {
+    "listing_email_required": "Konfirmo email-in para se të publikosh një njoftim.",
+    "listing_submission_invalid": "Kontrollo titullin, përshkrimin, çmimin dhe fotot para dërgimit.",
     "VALIDATION": "Kontrollo fushat e shënuara.",
     "fix_fields": "Kontrollo fushat e shënuara më sipër.",
     "UNAUTHENTICATED": "Duhet të hysh në llogari.",
@@ -336,6 +340,8 @@
     "previewTimer": "Mbaron për"
   },
   "dashboard": {
+    "aiDeclined": "Shqyrtimi automatik nuk e miratoi njoftimin. Ridërgoje për shqyrtim nga administratori.",
+    "resubmitReview": "Ridërgo për shqyrtim",
     "title": "Paneli im",
     "hello": "Përshëndetje, {name}.",
     "manageTitle": "Njoftimi im",

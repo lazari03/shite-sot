@@ -79,4 +79,8 @@ Before a production cutover, inventory and back up any existing Hetzner data. If
 
 Run the database migrations before enabling the worker. Set `AI_MODERATION_ENABLED=true` and `OPENAI_API_KEY` in the server environment. The default `OPENAI_MODERATION_MODEL` is `gpt-5.4-mini`. The worker reads `listing_review_v1` from the Supabase `ModerationPrompt` table and checks up to one new submission per minute. Update that row to change the moderation criteria.
 
-Only first-time submissions from verified sellers are eligible for automatic approval. Enable email verification and configure working email delivery so eligible sellers can verify their accounts. The worker sends listing text and resized photos to OpenAI, without seller account fields, and records auto-approvals in the audit log. Uncertain results, provider failures, and changes to already-published listings remain available in the admin review queue.
+Production requires a verified Resend sender and a working `RESEND_API_KEY`. Sellers must verify their email before a listing can be submitted or published. The server validates listing fields, catalog references, and photo ownership before review.
+
+The worker sends listing text and resized photos to OpenAI without seller account fields. It approves clear matches, declines clear violations, and leaves uncertain cases or provider failures pending for admins. A declined seller can amend or resubmit for human review. The existing 48-hour window starts only on first publication.
+
+Eligible approved listings get a relative price rating from at least three distinct sellers' recent comparable last asking prices on ShitShpejt. This calculation uses no model tokens. It suppresses ratings when there are too few matches or the compared prices are too dispersed.
