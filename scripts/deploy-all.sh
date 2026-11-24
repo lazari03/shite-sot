@@ -17,6 +17,13 @@ no_email_fallback() {
   fi
 }
 
+require_supabase_database() {
+  if ! grep -qE '^DATABASE_URL=postgres(ql)?://[^[:space:]]+@(db\.[a-z0-9]+\.supabase\.co|[a-z0-9.-]+\.pooler\.supabase\.com):5432/' .env.production; then
+    echo "Set DATABASE_URL in .env.production to the Supabase direct or session pooler URI, then rerun deploy."
+    exit 1
+  fi
+}
+
 # --- server IP ---
 HOST="${HOST:-}"
 [ -z "$HOST" ] && [ -f .deploy.local ] && HOST="$(grep -E '^HOST=' .deploy.local | cut -d= -f2 || true)"
@@ -46,9 +53,9 @@ if [ "$IS_LOCAL" = 1 ]; then
     EMAIL="$(ask "Your email (for the HTTPS certificate)")"
     bash scripts/make-prod-env.sh "$DOMAIN" "$EMAIL"
   fi
+  require_supabase_database
   no_email_fallback
   install -m 600 .env.production "$APP_DIR/.env"
-  install -m 600 .env.db.production "$APP_DIR/.env.db"
   install -m 600 .deploy.env.production "$APP_DIR/.deploy.env"
   cp compose.prod.yaml scripts/deploy.sh "$APP_DIR/"
   # Another site's proxy already on port 80? Sit behind it instead of starting our own Caddy.
@@ -90,13 +97,13 @@ if [ ! -f .env.production ]; then
   EMAIL="$(ask "Your email (for the HTTPS certificate)")"
   bash scripts/make-prod-env.sh "$DOMAIN" "$EMAIL"
 fi
+require_supabase_database
 no_email_fallback
 
 echo "→ Uploading config"
 scp -q .env.production "deploy@$HOST:/opt/shitshpejt/.env"
-scp -q .env.db.production "deploy@$HOST:/opt/shitshpejt/.env.db"
 scp -q .deploy.env.production "deploy@$HOST:/opt/shitshpejt/.deploy.env"
-ssh "deploy@$HOST" 'chmod 600 /opt/shitshpejt/.env /opt/shitshpejt/.env.db /opt/shitshpejt/.deploy.env'
+ssh "deploy@$HOST" 'chmod 600 /opt/shitshpejt/.env /opt/shitshpejt/.deploy.env'
 
 # --- build + ship ---
 make --no-print-directory ship HOST="$HOST" PLATFORM="$PLATFORM"

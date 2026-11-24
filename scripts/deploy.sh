@@ -4,6 +4,10 @@
 set -euo pipefail
 NEW_TAG="$1"
 cd /opt/shitshpejt
+if ! grep -qE '^DATABASE_URL=postgres(ql)?://[^[:space:]]+@(db\.[a-z0-9]+\.supabase\.co|[a-z0-9.-]+\.pooler\.supabase\.com):5432/' .env; then
+  echo "Set DATABASE_URL in /opt/shitshpejt/.env to the Supabase direct or session pooler URI."
+  exit 1
+fi
 mkdir -p docker
 PREV_TAG="$(cat .current_tag 2>/dev/null || true)"
 export IMAGE_REPO="${IMAGE_REPO:-lazari03/shite-sot}"
