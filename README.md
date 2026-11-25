@@ -33,6 +33,7 @@ pnpm test:e2e                                                               # Pl
 
 | | |
 |---|---|
+| [`docs/KNOWLEDGE.md`](docs/KNOWLEDGE.md) | **Start here:** plain-language overview of everything that exists |
 | [`docs/MASTER_PROMPT.md`](docs/MASTER_PROMPT.md) | Product spec (source of truth) |
 | [`docs/design/prototype-v4.html`](docs/design/prototype-v4.html) | Visual source of truth |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System design, lifecycle, data model, jobs, routes |
