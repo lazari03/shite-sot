@@ -61,10 +61,14 @@ export async function moderateNextListing() {
   const prompt = await db.moderationPrompt.findUnique({ where: { key: "listing_review_v1" } });
   if (!prompt?.instructions.trim()) return 0;
 
+  // Only auto-review sellers with a confirmed email, unless the site runs without email verification.
+  const sellerGate = config.REQUIRE_EMAIL_VERIFICATION
+    ? { bannedAt: null, deletedAt: null, emailVerified: true }
+    : { bannedAt: null, deletedAt: null };
   const eligible = {
     status: "PENDING_REVIEW" as const,
     publishedAt: null,
-    seller: { bannedAt: null, deletedAt: null, emailVerified: true },
+    seller: sellerGate,
     aiModerationCheckedAt: null,
     OR: [{ rejectionReason: null }, { rejectionReason: { not: AI_REVIEW_DECLINED } }],
   };
@@ -115,7 +119,7 @@ export async function moderateNextListing() {
       const comparables = await tx.listing.findMany({
         where: {
           sellerId: { not: current.sellerId },
-          seller: { bannedAt: null, deletedAt: null, emailVerified: true },
+          seller: sellerGate,
           title: { equals: current.title, mode: "insensitive" },
           status: "SOLD",
           categoryId: current.categoryId,

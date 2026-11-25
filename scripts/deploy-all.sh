@@ -14,6 +14,21 @@ require_verification_email() {
   fi
 }
 
+# AI moderator (OpenAI): asked once, remembered in .env.production.
+configure_ai_moderator() {
+  grep -q '^AI_MODERATION_ENABLED=' .env.production && return 0
+  echo "AI moderator: reviews and approves new listings automatically (uses an OpenAI API key, paid per review)."
+  read -r -s -p "OpenAI API key (platform.openai.com, Enter to skip): " AIKEY; echo
+  if [ -n "$AIKEY" ]; then
+    sed -i.bak '/^OPENAI_API_KEY=/d' .env.production && rm -f .env.production.bak
+    printf 'AI_MODERATION_ENABLED=true\nOPENAI_API_KEY=%s\n' "$AIKEY" >> .env.production
+    echo "  ✓ AI moderator on"
+  else
+    echo "AI_MODERATION_ENABLED=false" >> .env.production
+    echo "  • Skipped (listings wait for you in /admin/moderimi)"
+  fi
+}
+
 require_supabase_database() {
   if ! grep -qE '^DATABASE_URL=postgres(ql)?://[^[:space:]]+@(db\.[a-z0-9]+\.supabase\.co|[a-z0-9.-]+\.pooler\.supabase\.com):5432/' .env.production; then
     echo "Set DATABASE_URL in .env.production to the Supabase direct or session pooler URI, then rerun deploy."
@@ -52,6 +67,7 @@ if [ "$IS_LOCAL" = 1 ]; then
   fi
   require_supabase_database
   require_verification_email
+  configure_ai_moderator
   install -m 600 .env.production "$APP_DIR/.env"
   install -m 600 .deploy.env.production "$APP_DIR/.deploy.env"
   cp compose.prod.yaml scripts/deploy.sh "$APP_DIR/"
@@ -94,6 +110,7 @@ if [ ! -f .env.production ]; then
   EMAIL="$(ask "Your email (for the HTTPS certificate)")"
   bash scripts/make-prod-env.sh "$DOMAIN" "$EMAIL"
 fi
+configure_ai_moderator
 require_supabase_database
 require_verification_email
 
