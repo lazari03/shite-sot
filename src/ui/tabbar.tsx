@@ -19,7 +19,7 @@ export function TabBar({ loggedIn }: { loggedIn: boolean }) {
   return (
     <nav
       aria-label={t("main")}
-      className="glass grid h-[calc(var(--tabbar)+var(--safe-b))] grid-cols-5 border-t border-line bg-white/95 px-1.5 pb-[var(--safe-b)] backdrop-blur-[14px] backdrop-saturate-[1.4] md:hidden"
+      className="glass fixed inset-x-0 bottom-0 z-40 grid h-[calc(var(--tabbar)+var(--safe-b))] grid-cols-5 border-t border-line bg-white/95 px-1.5 pb-[var(--safe-b)] backdrop-blur-[14px] backdrop-saturate-[1.4] md:hidden"
     >
       {tabs.map(({ href, label, icon: Icon, active, sell }) => (
         <Link

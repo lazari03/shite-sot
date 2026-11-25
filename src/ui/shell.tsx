@@ -27,13 +27,13 @@ export async function Shell({ children, variant = "page", title, tabbar = false,
   const isHome = variant === "home";
 
   return (
-    <div className={cn("app-shell", actionbar && "app-shell-actions")}>
-      <a href="#main" className="sr-only focus:not-sr-only focus:mx-4 focus:my-2 focus:justify-self-start focus:rounded focus:bg-ink focus:px-3 focus:py-2 focus:text-white">
+    <div className={cn("app-shell", tabbar && "app-shell-tabbar", actionbar && "app-shell-actions")}>
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-ink focus:px-3 focus:py-2 focus:text-white">
         {t("nav.skip")}
       </a>
       <header
         className={cn(
-          "glass border-b border-line pt-[env(safe-area-inset-top)] backdrop-blur-[14px] backdrop-saturate-[1.4]",
+          "glass sticky top-0 z-30 border-b border-line pt-[env(safe-area-inset-top)] backdrop-blur-[14px] backdrop-saturate-[1.4]",
           isHome ? "bg-paper/90" : "bg-paper/90 max-md:bg-white/95",
         )}
       >
