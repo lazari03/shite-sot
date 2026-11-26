@@ -3,6 +3,7 @@ import { z } from "zod";
 import { env } from "@/env";
 import { db } from "@/server/db";
 import { AppError } from "@/server/errors";
+import { log } from "@/server/logger";
 import { storage } from "@/server/storage";
 import { AI_REVIEW_DECLINED, assessComparablePrice } from "./ai-review-policy";
 import { validateSubmission } from "./service";
@@ -92,9 +93,20 @@ export async function moderateNextListing() {
   const photos = await Promise.all(listing.images.map(({ key }) => storage().read(`${key}/320.webp`)));
   if (photos.some((photo) => !photo?.length || photo.length > 512_000)) return 0;
 
-  const decision = await reviewListing(config.OPENAI_API_KEY, config.OPENAI_MODERATION_MODEL, prompt.instructions, {
-    title, description, category: listing.category.name, condition: listing.condition, priceMinor: listing.priceMinor, currency: listing.currency,
-  }, photos.filter((photo): photo is Buffer => photo !== null));
+  let decision: Awaited<ReturnType<typeof reviewListing>>;
+  try {
+    decision = await reviewListing(config.OPENAI_API_KEY, config.OPENAI_MODERATION_MODEL, prompt.instructions, {
+      title, description, category: listing.category.name, condition: listing.condition, priceMinor: listing.priceMinor, currency: listing.currency,
+    }, photos.filter((photo): photo is Buffer => photo !== null));
+  } catch (error) {
+    // Provider/network failure is not a review: release the claim so the next run retries this listing.
+    await db.listing.updateMany({
+      where: { id: listing.id, aiModerationCheckedAt: checkedAt },
+      data: { aiModerationCheckedAt: null, updatedAt: listing.updatedAt },
+    });
+    log.warn("AI moderation call failed, will retry", { listingId: listing.id, err: error });
+    return 0;
+  }
   if (decision === "needs_human_review") return 0;
 
   try {
