@@ -29,7 +29,8 @@ async function heartbeat(name: string, detail: Prisma.InputJsonObject) {
 }
 
 async function main() {
-  const boss = new PgBoss({ connectionString: env().DATABASE_URL, schema: "pgboss" });
+  // Keep connections low: Supabase's session pooler allows ~15 clients for web + worker together.
+  const boss = new PgBoss({ connectionString: env().DATABASE_URL, schema: "pgboss", max: Number(process.env.PGBOSS_POOL_MAX ?? 3) });
   boss.on("error", (err) => log.error("pg-boss error", { err }));
   await boss.start();
 

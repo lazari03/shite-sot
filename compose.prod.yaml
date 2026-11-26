@@ -39,6 +39,15 @@ services:
   worker:
     <<: *app
     command: ["worker"]
+    environment:
+      # Same as x-app (a service-level environment replaces the anchor's), plus pool limits.
+      LOCAL_STORAGE_DIR: /app/storage
+      MODERATION_MODE: all
+      REQUIRE_EMAIL_VERIFICATION: "true"
+      EMAIL_PROVIDER: resend
+      # Connection budget (Supabase session pooler ≈ 15): web 4+2, worker 2+3, migrate ~2.
+      DATABASE_POOL_MAX: "2"
+      PGBOSS_POOL_MAX: "3"
     restart: unless-stopped
     volumes: [media:/app/storage]
     healthcheck: { disable: true }

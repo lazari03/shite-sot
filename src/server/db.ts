@@ -10,7 +10,7 @@ const globalForDb = globalThis as unknown as { __db?: PrismaClient };
 
 function client(): PrismaClient {
   if (!globalForDb.__db) {
-    const adapter = new PrismaPg({ connectionString: env().DATABASE_URL, max: Number(process.env.DATABASE_POOL_MAX ?? 10) });
+    const adapter = new PrismaPg({ connectionString: env().DATABASE_URL, max: Number(process.env.DATABASE_POOL_MAX ?? 4) });
     globalForDb.__db = new PrismaClient({ adapter });
   }
   return globalForDb.__db;
