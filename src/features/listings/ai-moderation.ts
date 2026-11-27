@@ -37,7 +37,8 @@ async function reviewListing(apiKey: string, model: string, instructions: string
         { type: "input_text", text: JSON.stringify(listing) },
         ...photos.map((photo) => ({ type: "input_image", detail: "high", image_url: `data:image/webp;base64,${photo.toString("base64")}` })),
       ] }],
-      max_output_tokens: 100,
+      // Reasoning models spend tokens thinking before answering; 100 made every reply "incomplete".
+      max_output_tokens: 2000,
       text: { format: { type: "json_schema", name: "listing_review", strict: true, schema: {
         type: "object", additionalProperties: false, required: ["decision"],
         properties: { decision: { type: "string", enum: ["approve", "decline", "needs_human_review"] } },
@@ -45,8 +46,13 @@ async function reviewListing(apiKey: string, model: string, instructions: string
     }),
   });
   if (!response.ok) throw new Error(`Moderation provider HTTP ${response.status}`);
-  const result = Response.safeParse(await response.json());
-  if (!result.success) return "needs_human_review";
+  const json: unknown = await response.json();
+  const result = Response.safeParse(json);
+  if (!result.success) {
+    const status = (json as { status?: unknown; incomplete_details?: unknown } | null) ?? {};
+    log.warn("AI moderation: unusable provider response", { status: status.status, incomplete: status.incomplete_details });
+    return "needs_human_review";
+  }
   const output = result.data.output
     .filter((item) => item.type === "message")
     .flatMap((item) => item.content ?? []);
@@ -60,7 +66,10 @@ export async function moderateNextListing() {
   const config = env();
   if (!config.AI_MODERATION_ENABLED || !config.OPENAI_API_KEY) return 0;
   const prompt = await db.moderationPrompt.findUnique({ where: { key: "listing_review_v1" } });
-  if (!prompt?.instructions.trim()) return 0;
+  if (!prompt?.instructions.trim()) {
+    log.warn("AI moderation: review prompt listing_review_v1 missing in ModerationPrompt");
+    return 0;
+  }
 
   // Only auto-review sellers with a confirmed email, unless the site runs without email verification.
   const sellerGate = config.REQUIRE_EMAIL_VERIFICATION
@@ -85,13 +94,24 @@ export async function moderateNextListing() {
     where: { ...eligible, id: listing.id, updatedAt: listing.updatedAt },
     data: { aiModerationCheckedAt: checkedAt, updatedAt: listing.updatedAt },
   });
-  if (!claim.count || !listing.category.active || !listing.city.active || !listing.images.length || listing.images.length > 8) return 0;
-  await validateSubmission(db, listing);
+  // Every skip is logged so an admin can see why a listing was left for human review.
+  const skip = (reason: string) => {
+    log.info("AI moderation: left for human review", { listingId: listing.id, reason });
+    return 0;
+  };
+  if (!claim.count) return 0;
+  if (!listing.category.active || !listing.city.active) return skip("inactive category or city");
+  if (!listing.images.length || listing.images.length > 8) return skip("photo count");
+  try {
+    await validateSubmission(db, listing);
+  } catch (error) {
+    return skip(`failed submission checks: ${error instanceof AppError ? error.messageKey : "unknown"}`);
+  }
   const title = redact(listing.title);
   const description = redact(listing.description);
-  if (title !== listing.title || description !== listing.description) return 0;
+  if (title !== listing.title || description !== listing.description) return skip("text looks like it contains contact details (phone, email or link)");
   const photos = await Promise.all(listing.images.map(({ key }) => storage().read(`${key}/320.webp`)));
-  if (photos.some((photo) => !photo?.length || photo.length > 512_000)) return 0;
+  if (photos.some((photo) => !photo?.length || photo.length > 512_000)) return skip("a photo could not be read from storage");
 
   let decision: Awaited<ReturnType<typeof reviewListing>>;
   try {
@@ -107,6 +127,7 @@ export async function moderateNextListing() {
     log.warn("AI moderation call failed, will retry", { listingId: listing.id, err: error });
     return 0;
   }
+  log.info("AI moderation decision", { listingId: listing.id, decision, model: config.OPENAI_MODERATION_MODEL });
   if (decision === "needs_human_review") return 0;
 
   try {
