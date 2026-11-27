@@ -39,7 +39,14 @@ async function main() {
     await boss.schedule(name, job.cron, {}, { tz: "Europe/Tirane" });
     await boss.work(name, async () => {
       const started = Date.now();
-      const result = await job.run();
+      let result: Awaited<ReturnType<typeof job.run>>;
+      try {
+        result = await job.run();
+      } catch (err) {
+        // pg-boss would retry silently; make failures visible in the logs.
+        log.error(`job ${name} failed`, { err });
+        throw err;
+      }
       await heartbeat(name, { ...result, ms: Date.now() - started });
       if (Object.values(result).some((v) => typeof v === "number" && v > 0)) log.info(`job ${name}`, result);
     });
@@ -47,7 +54,10 @@ async function main() {
   // Reconcile immediately on boot so a restart never leaves stale ACTIVE rows around.
   await expireDueListings();
   await heartbeat("worker.boot", { pid: process.pid });
-  log.info("worker started", { jobs: Object.keys(JOBS) });
+  log.info("worker started", {
+    jobs: Object.keys(JOBS),
+    aiModeration: env().AI_MODERATION_ENABLED && env().OPENAI_API_KEY ? `on (${env().OPENAI_MODERATION_MODEL})` : "off",
+  });
 
   const shutdown = async (sig: string) => {
     log.info("worker stopping", { sig });
