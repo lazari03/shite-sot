@@ -9,7 +9,7 @@ import { AI_REVIEW_DECLINED, assessComparablePrice } from "./ai-review-policy";
 import { validateSubmission } from "./service";
 import { transitionListing } from "./state";
 
-const Review = z.object({ decision: z.enum(["approve", "decline", "needs_human_review"]) });
+const Review = z.object({ decision: z.enum(["approve", "decline", "needs_human_review"]), reason: z.string().max(300) });
 const Response = z.object({
   status: z.literal("completed"),
   output: z.array(z.object({
@@ -40,8 +40,12 @@ async function reviewListing(apiKey: string, model: string, instructions: string
       // Reasoning models spend tokens thinking before answering; 100 made every reply "incomplete".
       max_output_tokens: 2000,
       text: { format: { type: "json_schema", name: "listing_review", strict: true, schema: {
-        type: "object", additionalProperties: false, required: ["decision"],
-        properties: { decision: { type: "string", enum: ["approve", "decline", "needs_human_review"] } },
+        type: "object", additionalProperties: false, required: ["decision", "reason"],
+        properties: {
+          decision: { type: "string", enum: ["approve", "decline", "needs_human_review"] },
+          // Short English explanation, logged for admins (never shown to buyers).
+          reason: { type: "string" },
+        },
       } } },
     }),
   });
@@ -58,8 +62,10 @@ async function reviewListing(apiKey: string, model: string, instructions: string
     .flatMap((item) => item.content ?? []);
   const [message] = output;
   if (output.length !== 1 || message?.type !== "output_text" || !message.text) return "needs_human_review";
-  const decision = Review.safeParse(JSON.parse(message.text));
-  return decision.success ? decision.data.decision : "needs_human_review";
+  const parsed = Review.safeParse(JSON.parse(message.text));
+  if (!parsed.success) return "needs_human_review";
+  log.info("AI moderation reason", { decision: parsed.data.decision, reason: parsed.data.reason.slice(0, 300) });
+  return parsed.data.decision;
 }
 
 export async function moderateNextListing() {
